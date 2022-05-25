@@ -1,8 +1,17 @@
 # -*- coding: utf-8 -*-
 """
 Created on Thu Apr 28 15:45:56 2022
-
 @author: yanan
+
+This script serves to find matched-passover LIS files that have optical lightning
+that were detected from space over a lightning mapping array detection domain.
+
+Given a folder with all LIS files that you want to perform a search, 
+it saves the files names in CSV format. This script were kept as a separate one simply because the searching took a while. 
+It would be more efficient if we just run such search once and save the matched LIS files for future usage.
+
+In this example, we used NALMA and only search for LIS events within 80 km of NALMA center
+
 """
 
 import os
@@ -141,6 +150,8 @@ for i, fname in enumerate(fname_list):
     if num_f_within_lma>0:
        passover_fname_list.append(fname)
        num_flashes_within_lma.append(num_f_within_lma)
+
+
     
     
     
