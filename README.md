@@ -12,3 +12,4 @@ You need to download the pyltg package developed by Dr. Phillip Bitzer
 
 
 ## Contact
+Please contact Yanan Zhu <yz0022@uah.edu> if you found any issue or have any questions. 
