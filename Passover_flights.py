@@ -99,8 +99,9 @@ NALMA_coordinates=np.array([[34.8092586,  -87.0357225],
                             [35.1532036,  -87.0611744],
                             [35.0684567,  -86.5624089]])
 
-# NALMA_center=np.array([34.8,-86.85])
-NALMA_center=np.array([29.64,-82.35])
+NALMA_center=np.array([34.8,-86.85])
+distance_threshold=80
+# NALMA_center=np.array([29.64,-82.35])
 
 ### plot NALMA station coordinates:
 # fig, ax=plt.subplots()
@@ -111,9 +112,8 @@ NALMA_center=np.array([29.64,-82.35])
 # ax.set_box_aspect(1)
 # ax.legend(handles=[p1,p4], loc='upper right')
 
-
-# data_dir='E:/Users/yanan/Desktop/LIS/'
 data_dir='E:/LIS_data/'
+LMA_network_name='NALMA'
 fname_list=[]
 
 for path, subdirs, files in os.walk(data_dir):
@@ -122,10 +122,14 @@ for path, subdirs, files in os.walk(data_dir):
             name=os.path.join(path, name).replace("\\" , "/")
             fname_list.append(name)
     
-#keep the files with flashes within 100 km of LMA center
+#keep the files with flashes within 80 km of LMA center
 passover_fname_list=[]
 num_flashes_within_lma=[]
 num_null_files=0
+
+
+matched_filenames=open("LIS_"+LMA_network_name+"_matched_filenames.txt", "w")
+
 for i, fname in enumerate(fname_list):
     print(str(i+1)+'/'+str(len(fname_list)),fname)
     l = LIS(fname)
@@ -145,11 +149,14 @@ for i, fname in enumerate(fname_list):
     NALMA_center_duplicates=np.tile(NALMA_center, (n_flashes, 1))
     f_d_2_lma=haversine_distance(f_latlon,NALMA_center_duplicates)
     
-    num_f_within_lma=len(np.where(f_d_2_lma<20)[0])
+    num_f_within_lma=len(np.where(f_d_2_lma<distance_threshold)[0])
     
     if num_f_within_lma>0:
        passover_fname_list.append(fname)
        num_flashes_within_lma.append(num_f_within_lma)
+       matched_filenames.write(fname + "\n")
+
+matched_filenames.close()
 
 
     
