@@ -1,4 +1,4 @@
-# Validation of  peformance of Lightning Imaging Sensor onbard International Space Station (ISS-LIS) using lightning mapping array (LMA) datasets
+# Validation of  peformance of Lightning Imaging Sensor onboard International Space Station (ISS-LIS) using lightning mapping array (LMA) datasets
 
 
 ## Dependences
