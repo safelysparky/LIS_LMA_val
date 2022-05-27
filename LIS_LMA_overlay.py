@@ -4,13 +4,14 @@ Created on Tue May  3 11:02:34 2022
 
 @author: yanan
 """
-import os
 from pyltg.core.lis import LIS
+import pyltg.core.lis as ltgLIS
+
+import os
 import pymap3d as pm
 import numpy as np
 import matplotlib.pyplot as plt
 import pickle
-import pyltg.core.lis as ltgLIS
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 import pandas as pd
@@ -600,6 +601,17 @@ def get_radiance_area_vs_time(E2):
             
     return t_frame,rad_frame,area_frame
 
+def geolocate_all_pixels(t,one_second_df):
+    #  Three element tuple given the interpolated position, velocity, and transformation matrix for the given time
+    pol,vel,transform_matrix=ltgLIS.interp_one_sec(time=t,one_seconds=one_second_df)
+    #  Here we geolocate all 128*128 pixels
+    pxpy=np.array(np.meshgrid(np.arange(128), np.arange(128))).T.reshape(-1, 2)
+    px_all=pxpy[:,0]
+    py_all=pxpy[:,1]
+    all_pixels_coordinates=ltgLIS.geolocate_pixels(pol,vel,transform_matrix,px_all,py_all)
+    
+    return all_pixels_coordinates,pxpy
+
 
 
 NALMA_coordinates=np.array([[34.8092586,  -87.0357225],
@@ -796,7 +808,9 @@ for i, fname in enumerate(fname_list[0:1]):
         ref_t_stamp_2_ms=ref_t_stamp[:12]
         full_t_stamp=flash_DATE_STR+'T'+ref_t_stamp_2_ms
         
-        
+        # here we geolocate all pixels at the flash starting time
+        all_pixels_coordinates,pxpy=geolocate_all_pixels(t=f_t1_tstamp,one_second_df=l.one_second)
+
         #get fov of flash t1 and flash t2
         fov1 = ltgLIS.get_fov(l.one_second, times=f_t1_tstamp)
         fov2 = ltgLIS.get_fov(l.one_second, times=f_t2_tstamp)
