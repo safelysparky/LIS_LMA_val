@@ -612,6 +612,17 @@ def geolocate_all_pixels(t,one_second_df):
     
     return all_pixels_coordinates,pxpy
 
+def LIS_LMA_intesect(ev_poly_xy,hull_polygon_expanded):
+    LIS_LMA_intesect=False
+    for poly in ev_poly_xy:
+        poly_in_polygon_fmt=Polygon(poly)
+        tf_pixel_intersect=poly_in_polygon_fmt.intersects(hull_polygon_expanded)
+        
+        if tf_pixel_intersect==True:
+            LIS_LMA_intesect=True
+            break
+        
+    return LIS_LMA_intesect
 
 
 NALMA_coordinates=np.array([[34.8092586,  -87.0357225],
@@ -810,6 +821,9 @@ for i, fname in enumerate(fname_list[0:1]):
         
         # here we geolocate all pixels at the flash starting time
         all_pixels_coordinates,pxpy=geolocate_all_pixels(t=f_t1_tstamp,one_second_df=l.one_second)
+        all_pixels_latlon=np.hstack((all_pixels_coordinates.lat.reshape(-1,1),all_pixels_coordinates.lon.reshape(-1,1)))
+        all_pixels_xy=haversine_latlon_xy_conversion(all_pixels_latlon,NALMA_center)
+        
 
         #get fov of flash t1 and flash t2
         fov1 = ltgLIS.get_fov(l.one_second, times=f_t1_tstamp)
@@ -881,6 +895,8 @@ for i, fname in enumerate(fname_list[0:1]):
         E2=E1.iloc[idx_keep_spatial]
         E2_radiance=E2.radiance.values
         
+        
+        
         # get total radiance vs time
         t_frame,rad_frame,area_frame= get_radiance_area_vs_time(E2)
         t_frame=(t_frame-f_t1)*1e3
@@ -941,6 +957,14 @@ for i, fname in enumerate(fname_list[0:1]):
         hull_polygon_expanded = Polygon(hull_polygon.buffer(2.0).exterior) 
         
         
+        # Now we can check if the expanded hull_polygon intersect with any pixels in E2
+        LIS_LMA_intesect= LIS_LMA_intesect(ev_poly_xy,hull_polygon_expanded)
+        if LIS_LMA_intesect ==True:
+            print('DETECTED')
+        else:
+            print('MISSED')
+
+                
         x1, y1 = hull_polygon.exterior.xy
         x2, y2 = hull_polygon_expanded.exterior.xy
         
