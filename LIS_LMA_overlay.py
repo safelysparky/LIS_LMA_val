@@ -613,16 +613,16 @@ def geolocate_all_pixels(t,one_second_df):
     return all_pixels_coordinates,pxpy
 
 def LIS_LMA_intesect(ev_poly_xy,hull_polygon_expanded):
-    LIS_LMA_intesect=False
+    LIS_LMA_intesect_tf=False
     for poly in ev_poly_xy:
         poly_in_polygon_fmt=Polygon(poly)
         tf_pixel_intersect=poly_in_polygon_fmt.intersects(hull_polygon_expanded)
         
         if tf_pixel_intersect==True:
-            LIS_LMA_intesect=True
+            LIS_LMA_intesect_tf=True
             break
         
-    return LIS_LMA_intesect
+    return LIS_LMA_intesect_tf
 
 
 NALMA_coordinates=np.array([[34.8092586,  -87.0357225],
@@ -780,8 +780,8 @@ for i, fname in enumerate(fname_list[0:1]):
     
     for ii, info in enumerate(big_flash_info):
         print(ii)
-        if ii!=214:
-            continue
+        # if ii!=214:
+        #     continue
     
         flash_ID=info[3]
         sources_idx=np.where(S_sorted_big_flash[:,-1]==flash_ID)[0]
@@ -895,8 +895,7 @@ for i, fname in enumerate(fname_list[0:1]):
         E2=E1.iloc[idx_keep_spatial]
         E2_radiance=E2.radiance.values
         
-        
-        
+              
         # get total radiance vs time
         t_frame,rad_frame,area_frame= get_radiance_area_vs_time(E2)
         t_frame=(t_frame-f_t1)*1e3
@@ -943,10 +942,6 @@ for i, fname in enumerate(fname_list[0:1]):
             axs[2].fill(poly[:,0],poly[:,1],facecolor=cmap(color_scale), edgecolor='black', linewidth=1)
         axs[2].scatter(lma_x,lma_y,c=f_t, marker='.', zorder=13,cmap='jet')
         
-        # # # plot convex hull
-        # for simplex in hull.simplices:
-        #     axs[2].plot(lma_x[simplex],  lma_y[simplex], 'r--', alpha=0.5)
-        #     axs[2].plot(lma_x[simplex],  lma_y[simplex], 'go',zorder=15)
             
         ## here we need to get the vertices of the convext hull and based on that create a polygon
         hull_x=(lma_x[hull.vertices]).reshape(-1,1)
@@ -956,10 +951,19 @@ for i, fname in enumerate(fname_list[0:1]):
         hull_polygon = Polygon(rr)
         hull_polygon_expanded = Polygon(hull_polygon.buffer(2.0).exterior) 
         
+        #find the centroid of the LMA polygon (before expanding)
+        hull_centroid_x,hull_centroid_y=hull_polygon.centroid.coords.xy
+        axs[2].scatter(hull_centroid_x,hull_centroid_y, c='k', s=150, marker='X', zorder=14)
+        
+        #find the corresponding px and py for the centroid
+        d_pixels_2_centroid=d_point_to_points_2d([hull_centroid_x,hull_centroid_y],all_pixels_xy)
+        centroid_pixel_idx=np.where((d_pixels_2_centroid<5)&(d_pixels_2_centroid==np.min(d_pixels_2_centroid)))[0][0]
+        centroid_pxpy=pxpy[centroid_pixel_idx]
+        
         
         # Now we can check if the expanded hull_polygon intersect with any pixels in E2
-        LIS_LMA_intesect= LIS_LMA_intesect(ev_poly_xy,hull_polygon_expanded)
-        if LIS_LMA_intesect ==True:
+        LIS_LMA_intesect_tf= LIS_LMA_intesect(ev_poly_xy,hull_polygon_expanded)
+        if LIS_LMA_intesect_tf ==True:
             print('DETECTED')
         else:
             print('MISSED')
@@ -1009,9 +1013,7 @@ for i, fname in enumerate(fname_list[0:1]):
         axs[2].set_aspect('equal', adjustable='box')
         plt.show()
         
-        
-        
-        
+         
         # get rid of puncuation that can not be used as 
         full_t_stamp=full_t_stamp.replace(':','_')
         full_t_stamp=full_t_stamp.replace('.','_')
