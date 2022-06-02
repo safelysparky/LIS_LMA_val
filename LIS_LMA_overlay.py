@@ -780,8 +780,8 @@ for i, fname in enumerate(fname_list[0:1]):
     
     for ii, info in enumerate(big_flash_info):
         print(ii)
-        # if ii!=214:
-        #     continue
+        if ii!=19:
+            continue
     
         flash_ID=info[3]
         sources_idx=np.where(S_sorted_big_flash[:,-1]==flash_ID)[0]
@@ -942,7 +942,7 @@ for i, fname in enumerate(fname_list[0:1]):
             axs[2].fill(poly[:,0],poly[:,1],facecolor=cmap(color_scale), edgecolor='black', linewidth=1)
         axs[2].scatter(lma_x,lma_y,c=f_t, marker='.', zorder=13,cmap='jet')
         
-            
+        
         ## here we need to get the vertices of the convext hull and based on that create a polygon
         hull_x=(lma_x[hull.vertices]).reshape(-1,1)
         hull_y=(lma_y[hull.vertices]).reshape(-1,1)
@@ -950,6 +950,10 @@ for i, fname in enumerate(fname_list[0:1]):
         rr=LinearRing(hull_xy)
         hull_polygon = Polygon(rr)
         hull_polygon_expanded = Polygon(hull_polygon.buffer(2.0).exterior) 
+        
+        # get the xy bounds of the expanded polygon, needs this for deteming plot limit
+        ep_minx, ep_miny, ep_maxx, ep_maxy=hull_polygon_expanded.bounds
+        
         
         #find the centroid of the LMA polygon (before expanding)
         hull_centroid_x,hull_centroid_y=hull_polygon.centroid.coords.xy
@@ -977,8 +981,8 @@ for i, fname in enumerate(fname_list[0:1]):
         
         # here we need to make the plot square, to do this, we need to make sure
         ev_poly_xy_ary=np.concatenate(ev_poly_xy)
-        all_x=np.concatenate((ev_poly_xy_ary[:,0],lma_x))
-        all_y=np.concatenate((ev_poly_xy_ary[:,1],lma_y))
+        all_x=np.concatenate((ev_poly_xy_ary[:,0],lma_x,np.array([ep_minx, ep_maxx])))
+        all_y=np.concatenate((ev_poly_xy_ary[:,1],lma_y,np.array([ep_miny, ep_maxy])))
         
         min_x=np.min(all_x)
         max_x=np.max(all_x)
