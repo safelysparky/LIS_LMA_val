@@ -780,8 +780,8 @@ for i, fname in enumerate(fname_list[0:1]):
     
     for ii, info in enumerate(big_flash_info):
         print(ii)
-        if ii!=19:
-            continue
+        # if ii!=19:
+        #     continue
     
         flash_ID=info[3]
         sources_idx=np.where(S_sorted_big_flash[:,-1]==flash_ID)[0]
@@ -884,15 +884,29 @@ for i, fname in enumerate(fname_list[0:1]):
             # the distance between an LIS event to all sources in a lma flash
             d_e_2_lma=haversine_distance(e_latlon, f_latlon)
             
-            #we only keep events that are within 20 km of any lma sources
+            #we only keep events that are within 10 km of any lma sources
             if np.min(d_e_2_lma)<10:
                 idx_keep_spatial=np.concatenate((idx_keep_spatial,np.array([k])))
         
         if len(idx_keep_spatial)==0:
             print(ii,'base on spatial scale of LMA flash, no LIS events found')
             continue
-                
+        
+
+        
         E2=E1.iloc[idx_keep_spatial]
+        
+        # optional, we could add addtional events that were not in E2 but in parent groups 
+        E2_parent_id=E2['parent_id'].values
+        G_id=G['id'].values
+        # prarent_group_indices = np.where(np.in1d(G_id, E2_parent_id))[0]
+        E_parent_id=E['parent_id'].values
+        E2_expanded_idx=np.where(np.in1d(E_parent_id, E2_parent_id))[0]
+        E2_expanded=E.iloc[E2_expanded_idx]
+        #replace E2 with E2 expanded
+        E2=E2_expanded
+        
+        
         E2_radiance=E2.radiance.values
         
               
@@ -907,7 +921,7 @@ for i, fname in enumerate(fname_list[0:1]):
         
         #now we get the ploygon of events in latlon, lets covert latlon of polygon to xy
         ev_poly_latlon,ev_poly_xy = convert_poly_latlon_to_xy(ev_poly)
-        
+
         fig,axs=LIS_plot_layout()
         
         ax0_xlim=[np.min(lma_t)-10,np.max(lma_t)+10]
@@ -1026,4 +1040,3 @@ for i, fname in enumerate(fname_list[0:1]):
         fig.savefig(fig_name,dpi=300,bbox_inches='tight')
 
       
-
