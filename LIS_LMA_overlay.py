@@ -624,6 +624,17 @@ def LIS_LMA_intesect(ev_poly_xy,hull_polygon_expanded):
         
     return LIS_LMA_intesect_tf
 
+def expand_E2(E2,G,E):
+    E2_parent_id=E2['parent_id'].values
+    # prarent_group_indices = np.where(np.in1d(G_id, E2_parent_id))[0]
+    E_parent_id=E['parent_id'].values
+    E2_expanded_idx=np.where(np.in1d(E_parent_id, E2_parent_id))[0]
+    E2_expanded=E.iloc[E2_expanded_idx]
+    #replace E2 with E2 expanded
+    E2=E2_expanded
+    
+    return E2
+
 
 NALMA_coordinates=np.array([[34.8092586,  -87.0357225],
                             [34.6433808,  -86.7714025],
@@ -780,8 +791,8 @@ for i, fname in enumerate(fname_list[0:1]):
     
     for ii, info in enumerate(big_flash_info):
         print(ii)
-        # if ii!=19:
-        #     continue
+        if ii!=19:
+            continue
     
         flash_ID=info[3]
         sources_idx=np.where(S_sorted_big_flash[:,-1]==flash_ID)[0]
@@ -893,32 +904,19 @@ for i, fname in enumerate(fname_list[0:1]):
             continue
         
 
-        
         E2=E1.iloc[idx_keep_spatial]
         
         # optional, we could add addtional events that were not in E2 but in parent groups 
-        E2_parent_id=E2['parent_id'].values
-        G_id=G['id'].values
-        # prarent_group_indices = np.where(np.in1d(G_id, E2_parent_id))[0]
-        E_parent_id=E['parent_id'].values
-        E2_expanded_idx=np.where(np.in1d(E_parent_id, E2_parent_id))[0]
-        E2_expanded=E.iloc[E2_expanded_idx]
-        #replace E2 with E2 expanded
-        E2=E2_expanded
-        
-        
-        E2_radiance=E2.radiance.values
-        
-              
+        E2=expand_E2(E2,G,E)
+
+
         # get total radiance vs time
         t_frame,rad_frame,area_frame= get_radiance_area_vs_time(E2)
         t_frame=(t_frame-f_t1)*1e3
         
-
         lla = ltgLIS.geolocate_events_in_frame(E2, l.one_second)
         ev_poly = ltgLIS.event_poly(E2, corners=lla, latlon=True, fill=True)
-        
-        
+                
         #now we get the ploygon of events in latlon, lets covert latlon of polygon to xy
         ev_poly_latlon,ev_poly_xy = convert_poly_latlon_to_xy(ev_poly)
 
@@ -942,6 +940,7 @@ for i, fname in enumerate(fname_list[0:1]):
         axs[1].set_xlim(ax0_xlim)
         axs[1].set_xlabel('Milliseconds after '+ full_t_stamp)
         
+        E2_radiance=E2.radiance.values
         for m, poly in enumerate(ev_poly_xy):
             # p = Polygon(poly, facecolor = 'k')
             # ax.add_patch(p)
