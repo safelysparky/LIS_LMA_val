@@ -682,6 +682,9 @@ dd_method='2d'
 #get the colormap
 cmap=cm.get_cmap('binary',100)
 
+# each row correspond to one LMA flash in FOV OF lis, lma_flash_no, Detected by LIS (true or false), X, Y
+lma_flash_no=0
+DE_x_y=[]
 
 
 for i, fname in enumerate(fname_list[0:1]):
@@ -791,8 +794,8 @@ for i, fname in enumerate(fname_list[0:1]):
     
     for ii, info in enumerate(big_flash_info):
         print(ii)
-        if ii!=19:
-            continue
+        # if ii!=19:
+        #     continue
     
         flash_ID=info[3]
         sources_idx=np.where(S_sorted_big_flash[:,-1]==flash_ID)[0]
@@ -836,7 +839,7 @@ for i, fname in enumerate(fname_list[0:1]):
         all_pixels_xy=haversine_latlon_xy_conversion(all_pixels_latlon,NALMA_center)
         
 
-        #get fov of flash t1 and flash t2
+        #get fov of LIS at flash t1 and flash t2
         fov1 = ltgLIS.get_fov(l.one_second, times=f_t1_tstamp)
         fov2 = ltgLIS.get_fov(l.one_second, times=f_t2_tstamp)
         
@@ -857,10 +860,7 @@ for i, fname in enumerate(fname_list[0:1]):
         lma_z=f[:,8]/1e3
         lma_t=(f_t-f_t1)*1e3
         
-        assert len(f_lonlat)>2
-        hull = ConvexHull(f_xy)
-        area=hull.volume
-
+        # make sure all LMA sources are within the fovs of LIS at flash t1 and t2
         in_fov1=check_if_within_polygon(fov1_lonlat,f_lat,f_lon)
         if in_fov1 is False:
             print(ii,'out of FOV1')
@@ -871,9 +871,33 @@ for i, fname in enumerate(fname_list[0:1]):
             print(ii,'out of FOV2')
             continue 
         
-        #lets do 2-ms events plots overlaid with lma sources
-        # first lets narrow-down the events data based on temporal and spatial span of lma data
+        ########################################################################
+        ######  if the code get here it means the lma flash is within the FOV of LIS
+        ########################################################################
         
+        # determine the convex hull of the LMA flash in 2D
+        assert len(f_lonlat)>2 # MAKRE SURE lma SOURCES ARE MORE THAN 2
+        hull = ConvexHull(f_xy)
+        area=hull.volume
+        
+        ## here we need to get the vertices of the convex hull and based on that create a polygon object
+        hull_x=(lma_x[hull.vertices]).reshape(-1,1)
+        hull_y=(lma_y[hull.vertices]).reshape(-1,1)
+        hull_xy=np.hstack((hull_x,hull_y))
+        rr=LinearRing(hull_xy)
+        hull_polygon = Polygon(rr)
+        hull_polygon_expanded = Polygon(hull_polygon.buffer(2.0).exterior) 
+        
+        #find the centroid of the LMA polygon (before expanding)
+        hull_centroid_x,hull_centroid_y=hull_polygon.centroid.coords.xy
+        
+        #find the corresponding px and py for the centroid
+        d_pixels_2_centroid=d_point_to_points_2d([hull_centroid_x,hull_centroid_y],all_pixels_xy)
+        centroid_pixel_idx=np.where((d_pixels_2_centroid<5)&(d_pixels_2_centroid==np.min(d_pixels_2_centroid)))[0][0]
+        centroid_pxpy=pxpy[centroid_pixel_idx]
+        
+
+        # first lets narrow-down the events data based on temporal and spatial span of lma data        
         #temporal part
         E_tod= group_t_stamps_to_tod(E.time)
         idx_keep_temporal=np.where((E_tod>=f_t1)&(E_tod<=f_t2))[0]
@@ -954,30 +978,14 @@ for i, fname in enumerate(fname_list[0:1]):
             color_scale=(rad-3500)/(40000-3500) # this value range from 0 to 1
             axs[2].fill(poly[:,0],poly[:,1],facecolor=cmap(color_scale), edgecolor='black', linewidth=1)
         axs[2].scatter(lma_x,lma_y,c=f_t, marker='.', zorder=13,cmap='jet')
-        
-        
-        ## here we need to get the vertices of the convext hull and based on that create a polygon
-        hull_x=(lma_x[hull.vertices]).reshape(-1,1)
-        hull_y=(lma_y[hull.vertices]).reshape(-1,1)
-        hull_xy=np.hstack((hull_x,hull_y))
-        rr=LinearRing(hull_xy)
-        hull_polygon = Polygon(rr)
-        hull_polygon_expanded = Polygon(hull_polygon.buffer(2.0).exterior) 
-        
+                
         # get the xy bounds of the expanded polygon, needs this for deteming plot limit
         ep_minx, ep_miny, ep_maxx, ep_maxy=hull_polygon_expanded.bounds
         
         
-        #find the centroid of the LMA polygon (before expanding)
-        hull_centroid_x,hull_centroid_y=hull_polygon.centroid.coords.xy
+        # plot LMA flash centroid
         axs[2].scatter(hull_centroid_x,hull_centroid_y, c='k', s=150, marker='X', zorder=14)
-        
-        #find the corresponding px and py for the centroid
-        d_pixels_2_centroid=d_point_to_points_2d([hull_centroid_x,hull_centroid_y],all_pixels_xy)
-        centroid_pixel_idx=np.where((d_pixels_2_centroid<5)&(d_pixels_2_centroid==np.min(d_pixels_2_centroid)))[0][0]
-        centroid_pxpy=pxpy[centroid_pixel_idx]
-        
-        
+                
         # Now we can check if the expanded hull_polygon intersect with any pixels in E2
         LIS_LMA_intesect_tf= LIS_LMA_intesect(ev_poly_xy,hull_polygon_expanded)
         if LIS_LMA_intesect_tf ==True:
