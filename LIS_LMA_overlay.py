@@ -682,9 +682,10 @@ dd_method='2d'
 #get the colormap
 cmap=cm.get_cmap('binary',100)
 
-# each row correspond to one LMA flash in FOV OF lis, lma_flash_no, Detected by LIS (true or false), X, Y
+# each row correspond to one LMA flash in FOV OF lis,
+#fname_number (i) lma_flash_no (ii), Detected by LIS (true or false), X, Y, num_sources
 lma_flash_no=0
-DE_x_y=[]
+DE_info=[]
 
 
 for i, fname in enumerate(fname_list[0:1]):
@@ -794,8 +795,8 @@ for i, fname in enumerate(fname_list[0:1]):
     
     for ii, info in enumerate(big_flash_info):
         print(ii)
-        # if ii!=19:
-        #     continue
+        if ii!=19:
+            continue
     
         flash_ID=info[3]
         sources_idx=np.where(S_sorted_big_flash[:,-1]==flash_ID)[0]
@@ -860,6 +861,8 @@ for i, fname in enumerate(fname_list[0:1]):
         lma_z=f[:,8]/1e3
         lma_t=(f_t-f_t1)*1e3
         
+        n_lma_sources=len(f_lat)
+        
         # make sure all LMA sources are within the fovs of LIS at flash t1 and t2
         in_fov1=check_if_within_polygon(fov1_lonlat,f_lat,f_lon)
         if in_fov1 is False:
@@ -896,19 +899,19 @@ for i, fname in enumerate(fname_list[0:1]):
         centroid_pixel_idx=np.where((d_pixels_2_centroid<5)&(d_pixels_2_centroid==np.min(d_pixels_2_centroid)))[0][0]
         centroid_pxpy=pxpy[centroid_pixel_idx]
         
-
+        
         # first lets narrow-down the events data based on temporal and spatial span of lma data        
         #temporal part
         E_tod= group_t_stamps_to_tod(E.time)
         idx_keep_temporal=np.where((E_tod>=f_t1)&(E_tod<=f_t2))[0]
         if len(idx_keep_temporal)==0:
             print(ii,'base on time span of LMA flash, no LIS events found')
+            DE_info.append([i,ii,0,centroid_pxpy[0],centroid_pxpy[1],n_lma_sources])
             continue
         
         E1=E.iloc[idx_keep_temporal]
         
         #spatial part
-        n_lma_sources=len(f_lat)
         idx_keep_spatial=np.array([])
         for k in range(len(E1)):
             e_lat=E1.lat.iloc[k]
@@ -925,15 +928,18 @@ for i, fname in enumerate(fname_list[0:1]):
         
         if len(idx_keep_spatial)==0:
             print(ii,'base on spatial scale of LMA flash, no LIS events found')
+            DE_info.append([i,ii,0,centroid_pxpy[0],centroid_pxpy[1],n_lma_sources])
             continue
-        
 
         E2=E1.iloc[idx_keep_spatial]
         
+
+        # if there are LIS events associated with the LMA flash, lets append the info
+        DE_info.append([i,ii,1,centroid_pxpy[0],centroid_pxpy[1],n_lma_sources])
+        
         # optional, we could add addtional events that were not in E2 but in parent groups 
         E2=expand_E2(E2,G,E)
-
-
+        
         # get total radiance vs time
         t_frame,rad_frame,area_frame= get_radiance_area_vs_time(E2)
         t_frame=(t_frame-f_t1)*1e3
