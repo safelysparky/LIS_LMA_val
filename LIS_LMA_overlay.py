@@ -16,13 +16,15 @@ import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 import pandas as pd
 import gzip
+import datetime
+
 from pyproj import Transformer
 from shapely.geometry import Point
 from shapely.geometry.polygon import Polygon
 from shapely.geometry import LinearRing
 from scipy.spatial import ConvexHull
 from matplotlib import cm
-
+from suntime import Sun
 
 lonlat_to_webmercator = Transformer.from_crs("EPSG:4326", "EPSG:3857", always_xy=True)
 def latlon_to_Mercator(lon, lat):
