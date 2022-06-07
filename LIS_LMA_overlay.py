@@ -24,7 +24,78 @@ from shapely.geometry.polygon import Polygon
 from shapely.geometry import LinearRing
 from scipy.spatial import ConvexHull
 from matplotlib import cm
-from suntime import Sun
+from astral.sun import sun
+from astral import LocationInfo
+
+
+def find_sunrise_sunset_times(lat,lon,date_str):
+    
+    # create the sun observer location, the lat lon the centroid of the lma flash
+    l = LocationInfo()
+    l.latitude = lat
+    l.longitude = lon
+    
+    now_date=datetime.datetime.strptime(date_str, '%Y%m%d').date() # the date of flash
+    
+    one_day=datetime.timedelta(days=1)
+    yest_date=now_date-one_day
+    tomor_date=now_date+one_day
+    
+    # get sunrise and sunset time for three consecutive days
+    # simply to avoid any potential issue like sunrise and sunset might be on two different days
+    # on top of this, in different time zone, sunset and sunrise order might change in UTC time 
+    sunrise_t_list=[]
+    sunset_t_list=[]
+    for day in [yest_date,now_date,tomor_date]:
+        s = sun(l.observer, date=day,tzinfo='UTC')
+        # get the sunrise time and also remove tzinfo =UTC from the datetime object 
+        # for easy comparison with f_t1 (with no tzinfo)
+        sunrise_t=s['sunrise'].replace(tzinfo=None) 
+        sunset_t=s['sunset'].replace(tzinfo=None)
+        sunrise_t_list.append(sunrise_t)
+        sunset_t_list.append(sunset_t)
+        
+        
+    return sunrise_t_list,sunset_t_list
+    
+def determine_day_night(sunrise_t_list,sunset_t_list,f_t1_tstamp_till_us):
+
+    # f_t1_tstamp_till_us is the timing of first lma source in the flash, type is pd timestamp
+    # need to convert it to datetime for comparison with sunrise and sunset
+    f_t1_datetime=f_t1_tstamp_till_us.to_pydatetime()
+    
+    min_sunset_diff =999999
+    min_sunrise_diff=999999
+    
+    for sunrise_t, sunset_t in zip(sunrise_t_list,sunset_t_list):
+            
+        sunrise_diff=(f_t1_datetime-sunrise_t).total_seconds()
+        sunset_diff=(f_t1_datetime-sunset_t).total_seconds()
+        
+        if abs(sunrise_diff)<abs(min_sunrise_diff):
+            min_sunrise_diff=sunrise_diff
+            
+        if abs(sunset_diff)<abs(min_sunset_diff):
+            min_sunset_diff=sunset_diff
+    
+    sunrise_diff_hours=np.around(min_sunrise_diff/3600,1)
+    sunset_diff_hours=np.around(min_sunset_diff/3600,1)
+    
+    if min_sunrise_diff>=0 and min_sunset_diff<=0:
+        dn="day"
+    if  min_sunset_diff>=0 and min_sunrise_diff<=0:
+        dn="night"
+        
+    return sunrise_diff_hours, sunset_diff_hours, dn
+    
+            
+        
+        
+        
+
+    
+    
+
 
 lonlat_to_webmercator = Transformer.from_crs("EPSG:4326", "EPSG:3857", always_xy=True)
 def latlon_to_Mercator(lon, lat):
@@ -58,8 +129,6 @@ def LIS_plot_layout():
     
     axs=[ax1,ax2,ax3]
     return fig,axs
-
-
 
 def haversine_distance(latlon1, latlon2):                                                                       
     """                                                                                                                 
@@ -724,7 +793,7 @@ for i, fname in enumerate(fname_list[0:1]):
     #now we have f_close, lets extract lma and entln data in the f_close time ranges:
     ##################################################################################
     
-    # lets first extact lma data:
+    # lets first exrtact lma data:
     
     # find the involved lma files
     flash_DATE_STR=''.join(str(first_close_flash_t)[:10].split('-'))
@@ -826,6 +895,7 @@ for i, fname in enumerate(fname_list[0:1]):
         f_t1_hhmmss=tod_2_tstamp(f_t1)[:18]  # we need precision to ns
         f_t1_str=flash_DATE_STR+'T'+f_t1_hhmmss
         f_t1_tstamp=pd.Timestamp(f_t1_str)
+        f_t1_tstamp_till_us=pd.Timestamp(f_t1_str[:-3]) # need only us to avoid warning in pd to datetime converstion
         
         f_t2_hhmmss=tod_2_tstamp(f_t2)[:18]  # we need precision to ns
         f_t2_str=flash_DATE_STR+'T'+f_t2_hhmmss
@@ -880,6 +950,11 @@ for i, fname in enumerate(fname_list[0:1]):
         ######  if the code get here it means the lma flash is within the FOV of LIS
         ########################################################################
         
+        # detemine if it is day or night when this flash occurred
+        sunrise_t_list,sunset_t_list=find_sunrise_sunset_times(ref_lat,ref_lon,flash_DATE_STR)
+        
+        sunrise_diff_hours, sunset_diff_hours, dn= determine_day_night(sunrise_t_list,sunset_t_list,f_t1_tstamp_till_us)
+
         # determine the convex hull of the LMA flash in 2D
         assert len(f_lonlat)>2 # MAKRE SURE lma SOURCES ARE MORE THAN 2
         hull = ConvexHull(f_xy)
