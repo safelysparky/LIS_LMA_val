@@ -748,8 +748,6 @@ cmap=cm.get_cmap('binary',100)
 # each row correspond to one LMA flash in FOV OF lis,
 #fname_number (i) lma_flash_no (ii), Detected by LIS (true or false), X, Y, num_sources
 lma_flash_no=0
-DE_info=[]
-
 
 for i, fname in enumerate(fname_list[0:1]):
     # print(str(i+1)+'/'+str(len(fname_list)),fname)
@@ -976,7 +974,6 @@ for i, fname in enumerate(fname_list[0:1]):
         idx_keep_temporal=np.where((E_tod>=f_t1)&(E_tod<=f_t2))[0]
         if len(idx_keep_temporal)==0:
             print(ii,'base on time span of LMA flash, no LIS events found')
-            DE_info.append([i,ii,0,centroid_pxpy[0],centroid_pxpy[1],n_lma_sources])
             continue
         
         E1=E.iloc[idx_keep_temporal]
@@ -998,14 +995,9 @@ for i, fname in enumerate(fname_list[0:1]):
         
         if len(idx_keep_spatial)==0:
             print(ii,'base on spatial scale of LMA flash, no LIS events found')
-            DE_info.append([i,ii,0,centroid_pxpy[0],centroid_pxpy[1],n_lma_sources])
             continue
 
         E2=E1.iloc[idx_keep_spatial]
-        
-
-        # if there are LIS events associated with the LMA flash, lets append the info
-        DE_info.append([i,ii,1,centroid_pxpy[0],centroid_pxpy[1],n_lma_sources])
         
         # optional, we could add addtional events that were not in E2 but in parent groups 
         E2=expand_E2(E2,G,E)
