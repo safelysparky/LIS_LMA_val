@@ -89,14 +89,6 @@ def determine_day_night(sunrise_t_list,sunset_t_list,f_t1_tstamp_till_us):
     return sunrise_diff_hours, sunset_diff_hours, dn
     
             
-        
-        
-        
-
-    
-    
-
-
 lonlat_to_webmercator = Transformer.from_crs("EPSG:4326", "EPSG:3857", always_xy=True)
 def latlon_to_Mercator(lon, lat):
     x, y = lonlat_to_webmercator.transform(lon, lat)
@@ -762,18 +754,15 @@ DE_info=[]
 for i, fname in enumerate(fname_list[0:1]):
     # print(str(i+1)+'/'+str(len(fname_list)),fname)
     l = LIS(fname)
-    
-    
-    F=l.flashes._data
+       
+    F=l.flashes.data
     G=l.groups.data
     E=l.events.data
     
     F_lat=F['lat'].values
     F_lon=F['lon'].values
     F_latlon=np.hstack((F_lat.reshape(-1,1),F_lon.reshape(-1,1)))
-    
-    n_flashes=len(F_lat)
-    
+        
     F_d_2_lma=haversine_distance(F_latlon,NALMA_center)
     
     # if LIS flash is within 80 km of LMA center
@@ -796,13 +785,17 @@ for i, fname in enumerate(fname_list[0:1]):
     # lets first exrtact lma data:
     
     # find the involved lma files
-    flash_DATE_STR=''.join(str(first_close_flash_t)[:10].split('-'))
+    # why do we need to check date for first and last close flash?
+    # Because LIS does not strictly break file by dates, file close to the end of the day 
+    # could have events of the following day
+    flash_DATE_STR1=''.join(str(first_close_flash_t)[:10].split('-'))
+    flash_DATE_STR2=''.join(str(last_close_flash_t)[:10].split('-'))
     
-    ref_t_ns_4_tod=pd.Timestamp(flash_DATE_STR).value # use it as reference when calculate tod
+    ref_t_ns_4_tod=pd.Timestamp(flash_DATE_STR1).value # use it as reference when calculate tod
     
     first_close_flash_tod=LIS_tstamp_to_tod(first_close_flash_t)
     last_close_flash_tod=LIS_tstamp_to_tod(last_close_flash_t)
-    involved_lma_files=find_involved_lma_file(NALMA_folder,LMA_NAME,flash_DATE_STR,first_close_flash_tod,last_close_flash_tod)
+    involved_lma_files=find_involved_lma_file(NALMA_folder,LMA_NAME,flash_DATE_STR1,first_close_flash_tod,last_close_flash_tod)
     
     #load the lma file and extract those only within the f_close time ranges:
     for j, lma_fname in enumerate(involved_lma_files):
@@ -823,7 +816,7 @@ for i, fname in enumerate(fname_list[0:1]):
     
 
     # lets then extract ENLTN data
-    ENTLN_file=ENTLN_folder+flash_DATE_STR+'.npy'
+    ENTLN_file=ENTLN_folder+flash_DATE_STR1+'.npy'
     if os.path.exists(ENTLN_file) is True:
         EN=np.load(ENTLN_file)
     else:
@@ -893,18 +886,18 @@ for i, fname in enumerate(fname_list[0:1]):
 
         
         f_t1_hhmmss=tod_2_tstamp(f_t1)[:18]  # we need precision to ns
-        f_t1_str=flash_DATE_STR+'T'+f_t1_hhmmss
+        f_t1_str=flash_DATE_STR1+'T'+f_t1_hhmmss
         f_t1_tstamp=pd.Timestamp(f_t1_str)
         f_t1_tstamp_till_us=pd.Timestamp(f_t1_str[:-3]) # need only us to avoid warning in pd to datetime converstion
         
         f_t2_hhmmss=tod_2_tstamp(f_t2)[:18]  # we need precision to ns
-        f_t2_str=flash_DATE_STR+'T'+f_t2_hhmmss
+        f_t2_str=flash_DATE_STR1+'T'+f_t2_hhmmss
         f_t2_tstamp=pd.Timestamp(f_t2_str)
         
         
         ref_t_stamp=tod_2_tstamp(f_t1)
         ref_t_stamp_2_ms=ref_t_stamp[:12]
-        full_t_stamp=flash_DATE_STR+'T'+ref_t_stamp_2_ms
+        full_t_stamp=flash_DATE_STR1+'T'+ref_t_stamp_2_ms
         
         # here we geolocate all pixels at the flash starting time
         all_pixels_coordinates,pxpy=geolocate_all_pixels(t=f_t1_tstamp,one_second_df=l.one_second)
@@ -951,7 +944,7 @@ for i, fname in enumerate(fname_list[0:1]):
         ########################################################################
         
         # detemine if it is day or night when this flash occurred
-        sunrise_t_list,sunset_t_list=find_sunrise_sunset_times(ref_lat,ref_lon,flash_DATE_STR)
+        sunrise_t_list,sunset_t_list=find_sunrise_sunset_times(ref_lat,ref_lon,flash_DATE_STR1)
         
         sunrise_diff_hours, sunset_diff_hours, dn= determine_day_night(sunrise_t_list,sunset_t_list,f_t1_tstamp_till_us)
 
