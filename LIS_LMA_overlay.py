@@ -397,7 +397,7 @@ def find_involved_lma_file(NALMA_folder,LMA_NAME,DATE_STR,flash_t0,flash_t1):
     LMA_fnames=os.listdir(NALMA_folder)
     for fname in LMA_fnames:
         lma_name, date_str,file_start_tod, duration=LMA_fnames_parse(fname)
-        print(lma_name,date_str,file_start_tod,duration)
+        #print(lma_name,date_str,file_start_tod,duration)
         file_end_tod=file_start_tod+duration
         
         # first make sure LMA network name matches
@@ -408,8 +408,8 @@ def find_involved_lma_file(NALMA_folder,LMA_NAME,DATE_STR,flash_t0,flash_t1):
         if DATE_STR != date_str:
             continue
         
-        # case1 flash contained in one LMA file
-        if (flash_t0>file_start_tod)&(flash_t0<file_end_tod):
+        # case1 flashes all contained in one LMA file
+        if (flash_t0>file_start_tod)&(flash_t1<file_end_tod):
             involved_fnames.append(NALMA_folder+fname)
             break
         
@@ -426,7 +426,6 @@ def find_involved_lma_file(NALMA_folder,LMA_NAME,DATE_STR,flash_t0,flash_t1):
 def d_point_to_points_2d(event, events):
     dd=np.sqrt((events[:,0]-event[0])**2+(events[:,1]-event[1])**2)
     return dd
-
 
 def flash_sorting(S,t_thres,d_thres,dd_method):
     #format of S [X,Y,Z,T,....] # make sure first 4 colums are xyzt.
@@ -796,31 +795,29 @@ for i, fname in enumerate(fname_list[0:1]):
         continue
     
     ##################################################################################
-    #lets extract lma and entln data based on the passover LIS data time range:
+    # lets extract lma and entln data based on the passover LIS data time range:
     ##################################################################################
-    # lets first exrtact lma data:
-    
+    # exrtact lma data:
+        
     # find the involved lma files
-    # why do we need to check date for first and last close flash?
-    # Because LIS does not strictly break file by dates, file close to the end of the day 
-    # could have events of the following day
-    flash_DATE_STR1=''.join(str(first_LIS_event_t)[:10].split('-'))
-    flash_DATE_STR2=''.join(str(last_LIS_event_t)[:10].split('-'))
+    e1_date_str=''.join(str(first_LIS_event_t)[:10].split('-'))
+    e2_date_str=''.join(str(last_LIS_event_t)[:10].split('-'))
     
-    ref_t_ns_4_tod=pd.Timestamp(flash_DATE_STR1).value # use it as reference when calculate tod
+    ref_t_ns_4_tod=pd.Timestamp(e1_date_str).value # use it as reference when calculate tod
     
-    first_close_flash_tod=LIS_tstamp_to_tod(first_LIS_event_t)
-    last_close_flash_tod=LIS_tstamp_to_tod(last_LIS_event_t)
+    first_LIS_event_tod=LIS_tstamp_to_tod(first_LIS_event_t)
+    last_LIS_event_tod=LIS_tstamp_to_tod(last_LIS_event_t)
     
-    # if LIS record all on the same date or span two days
-    if flash_DATE_STR2==flash_DATE_STR1:
-        involved_lma_files=find_involved_lma_file(NALMA_folder,LMA_NAME,flash_DATE_STR1,first_close_flash_tod,last_close_flash_tod)
-    else:
-        involved_lma_files_addtional=find_involved_lma_file(NALMA_folder,LMA_NAME,flash_DATE_STR2,0,last_close_flash_tod)
-        for ffname in involved_lma_files_addtional:
+    # find involved lma file names 
+    if e2_date_str==e1_date_str: # LIS time ranges all in one day
+        involved_lma_files=find_involved_lma_file(NALMA_folder,LMA_NAME,e1_date_str,first_LIS_event_tod,last_LIS_event_tod)
+    else: # LIS time ranges span two days, that sometimes happens since LIS does not strictly break files by dates
+        involved_lma_files=find_involved_lma_file(NALMA_folder,LMA_NAME,e2_date_str,first_LIS_event_tod,24*3600)
+        involved_lma_files_second_day=find_involved_lma_file(NALMA_folder,LMA_NAME,e2_date_str,0,last_LIS_event_tod)
+        for ffname in involved_lma_files_second_day:
             involved_lma_files.append(ffname)
     
-    #load the lma file and extract those only within the f_close time ranges:
+    #load the lma file and extract those only within the time ranges of passover LIS events:
     for j, lma_fname in enumerate(involved_lma_files):
         S_one_file=read_lma_format_data_as_nparray(lma_fname,ref_lat,ref_lon,ref_alt)
         
@@ -831,7 +828,7 @@ for i, fname in enumerate(fname_list[0:1]):
             S=np.vstack((S,S_one_file))
     
     #shink it to the time range we needed, -/+3s of the f_close ranges:
-    idx_keep=np.where((S[:,3]>first_close_flash_tod-3)&(S[:,3]<last_close_flash_tod+3))[0]
+    idx_keep=np.where((S[:,3]>first_LIS_event_tod-3)&(S[:,3]<last_LIS_event_tod+3))[0]
     S_selected=S[idx_keep,:]
     
     #now lets sort lma sources into flashes
@@ -839,7 +836,7 @@ for i, fname in enumerate(fname_list[0:1]):
     
 
     # lets then extract ENLTN data
-    ENTLN_file=ENTLN_folder+flash_DATE_STR1+'.npy'
+    ENTLN_file=ENTLN_folder+e1_date_str+'.npy'
     if os.path.exists(ENTLN_file) is True:
         EN=np.load(ENTLN_file)
     else:
@@ -909,18 +906,18 @@ for i, fname in enumerate(fname_list[0:1]):
 
         
         f_t1_hhmmss=tod_2_tstamp(f_t1)[:18]  # we need precision to ns
-        f_t1_str=flash_DATE_STR1+'T'+f_t1_hhmmss
+        f_t1_str=e1_date_str+'T'+f_t1_hhmmss
         f_t1_tstamp=pd.Timestamp(f_t1_str)
         f_t1_tstamp_till_us=pd.Timestamp(f_t1_str[:-3]) # need only us to avoid warning in pd to datetime converstion
         
         f_t2_hhmmss=tod_2_tstamp(f_t2)[:18]  # we need precision to ns
-        f_t2_str=flash_DATE_STR1+'T'+f_t2_hhmmss
+        f_t2_str=e1_date_str+'T'+f_t2_hhmmss
         f_t2_tstamp=pd.Timestamp(f_t2_str)
         
         
         ref_t_stamp=tod_2_tstamp(f_t1)
         ref_t_stamp_2_ms=ref_t_stamp[:12]
-        full_t_stamp=flash_DATE_STR1+'T'+ref_t_stamp_2_ms
+        full_t_stamp=e1_date_str+'T'+ref_t_stamp_2_ms
         
         # here we geolocate all pixels at the flash starting time
         all_pixels_coordinates,pxpy=geolocate_all_pixels(t=f_t1_tstamp,one_second_df=l.one_second)
@@ -967,7 +964,7 @@ for i, fname in enumerate(fname_list[0:1]):
         ########################################################################
         
         # detemine if it is day or night when this flash occurred
-        sunrise_t_list,sunset_t_list=find_sunrise_sunset_times(ref_lat,ref_lon,flash_DATE_STR1)
+        sunrise_t_list,sunset_t_list=find_sunrise_sunset_times(ref_lat,ref_lon,e1_date_str)
         
         sunrise_diff_hours, sunset_diff_hours, dn= determine_day_night(sunrise_t_list,sunset_t_list,f_t1_tstamp_till_us)
 
