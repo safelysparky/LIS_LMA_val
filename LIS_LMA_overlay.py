@@ -793,7 +793,14 @@ for i, fname in enumerate(fname_list[0:1]):
     
     first_close_flash_tod=LIS_tstamp_to_tod(first_close_flash_t)
     last_close_flash_tod=LIS_tstamp_to_tod(last_close_flash_t)
-    involved_lma_files=find_involved_lma_file(NALMA_folder,LMA_NAME,flash_DATE_STR1,first_close_flash_tod,last_close_flash_tod)
+    
+    # if LIS record all on the same date or span two days
+    if flash_DATE_STR2==flash_DATE_STR1:
+        involved_lma_files=find_involved_lma_file(NALMA_folder,LMA_NAME,flash_DATE_STR1,first_close_flash_tod,last_close_flash_tod)
+    else:
+        involved_lma_files_addtional=find_involved_lma_file(NALMA_folder,LMA_NAME,flash_DATE_STR2,0,last_close_flash_tod)
+        for ffname in involved_lma_files_addtional:
+            involved_lma_files.append(ffname)
     
     #load the lma file and extract those only within the f_close time ranges:
     for j, lma_fname in enumerate(involved_lma_files):
