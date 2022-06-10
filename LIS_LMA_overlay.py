@@ -781,21 +781,23 @@ lma_flash_no=0
 for i, fname in enumerate(fname_list[0:1]):
     # print(str(i+1)+'/'+str(len(fname_list)),fname)
     
-
     # load the ~90 min LIS data
     l = LIS(fname)
     F=l.flashes.data
     G=l.groups.data
     E=l.events.data
     
+    # find LIS events within X-km of LMA network center, the time ranges of those LIS events
+    # will be used to extract LMA and ENTLN data later
     distance_thres_km=100
     first_LIS_event_t,last_LIS_event_t=find_time_ranges_of_LIS_events_over_LMA (E,LMA_center,distance_thres_km)
-
+    # if no LIS events found, will return a empty list, then this file will be skipped
+    if len(first_LIS_event_t)==0:
+        continue
     
     ##################################################################################
-    #now we have f_close, lets extract lma and entln data in the f_close time ranges:
+    #lets extract lma and entln data based on the passover LIS data time range:
     ##################################################################################
-    
     # lets first exrtact lma data:
     
     # find the involved lma files
