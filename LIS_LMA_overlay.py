@@ -27,6 +27,35 @@ from matplotlib import cm
 from astral.sun import sun
 from astral import LocationInfo
 
+def find_time_ranges_of_LIS_events_over_LMA (E,LMA_center,distance_thres_km):
+    # Find the rought time range when LIS detected events within X km of the LMA center
+    # Later this time range will be used to extract LMA and ENTLN data
+    E_lat=E['lat'].values
+    E_lon=E['lon'].values
+    E_latlon=np.hstack((E_lat.reshape(-1,1),E_lon.reshape(-1,1)))
+        
+    E_d_2_lma=haversine_distance(E_latlon,LMA_center)
+    
+    # if LIS flash is within 80 km of LMA center
+    close_E_idx=np.where(E_d_2_lma<distance_thres_km)[0]
+    
+    num_E_within_lma=len(close_E_idx)
+    if num_E_within_lma>0:
+    
+        E_close=E.iloc[close_E_idx,:]
+        
+        #sort times stamps
+        E_close_t=E_close['time'].sort_values()
+        first_LIS_event_t=E_close_t.iloc[0]
+        last_LIS_event_t=E_close_t.iloc[-1]
+        print(first_LIS_event_t,last_LIS_event_t)
+        print('_____________________________________________________________')
+    else:
+        first_LIS_event_t=[]
+        last_LIS_event_t=[]
+        print(f"no LIS events detected within {distance_thres_km} km of the LMA network ")
+        
+    return first_LIS_event_t,last_LIS_event_t
 
 def find_sunrise_sunset_times(lat,lon,date_str):
     
@@ -618,7 +647,7 @@ def convert_poly_latlon_to_xy(ev_poly):
     ev_poly_xy=[]
     for kk in range(len(ev_poly._paths)):
         poly_latlon=ev_poly._paths[kk].vertices[:,[1,0]]
-        poly_xy=haversine_latlon_xy_conversion(poly_latlon,NALMA_center)
+        poly_xy=haversine_latlon_xy_conversion(poly_latlon,LMA_center)
         ev_poly_latlon.append(ev_poly._paths[kk].vertices[:,[1,0]])
         ev_poly_xy.append(poly_xy)
     
@@ -712,9 +741,9 @@ NALMA_coordinates=np.array([[34.8092586,  -87.0357225],
                             [35.1532036,  -87.0611744],
                             [35.0684567,  -86.5624089]])
 
-NALMA_center=np.array([34.8,-86.85])
-ref_lat=NALMA_center[0]
-ref_lon=NALMA_center[1]
+LMA_center=np.array([34.8,-86.85])
+ref_lat=LMA_center[0]
+ref_lon=LMA_center[1]
 ref_alt=0
 
 
@@ -751,30 +780,17 @@ lma_flash_no=0
 
 for i, fname in enumerate(fname_list[0:1]):
     # print(str(i+1)+'/'+str(len(fname_list)),fname)
+    
+
+    # load the ~90 min LIS data
     l = LIS(fname)
-       
     F=l.flashes.data
     G=l.groups.data
     E=l.events.data
     
-    F_lat=F['lat'].values
-    F_lon=F['lon'].values
-    F_latlon=np.hstack((F_lat.reshape(-1,1),F_lon.reshape(-1,1)))
-        
-    F_d_2_lma=haversine_distance(F_latlon,NALMA_center)
-    
-    # if LIS flash is within 80 km of LMA center
-    close_F_idx=np.where(F_d_2_lma<80)[0]
-    num_F_within_lma=len(close_F_idx)
-    
-    F_close=F.iloc[close_F_idx,:]
-    
-    #sort times stamps
-    F_close_t=F_close['time'].sort_values()
-    first_close_flash_t=F_close_t.iloc[0]
-    last_close_flash_t=F_close_t.iloc[-1]
-    print(first_close_flash_t,last_close_flash_t)
-    print('_____________________________________________________________')
+    distance_thres_km=100
+    first_LIS_event_t,last_LIS_event_t=find_time_ranges_of_LIS_events_over_LMA (E,LMA_center,distance_thres_km)
+
     
     ##################################################################################
     #now we have f_close, lets extract lma and entln data in the f_close time ranges:
@@ -786,13 +802,13 @@ for i, fname in enumerate(fname_list[0:1]):
     # why do we need to check date for first and last close flash?
     # Because LIS does not strictly break file by dates, file close to the end of the day 
     # could have events of the following day
-    flash_DATE_STR1=''.join(str(first_close_flash_t)[:10].split('-'))
-    flash_DATE_STR2=''.join(str(last_close_flash_t)[:10].split('-'))
+    flash_DATE_STR1=''.join(str(first_LIS_event_t)[:10].split('-'))
+    flash_DATE_STR2=''.join(str(last_LIS_event_t)[:10].split('-'))
     
     ref_t_ns_4_tod=pd.Timestamp(flash_DATE_STR1).value # use it as reference when calculate tod
     
-    first_close_flash_tod=LIS_tstamp_to_tod(first_close_flash_t)
-    last_close_flash_tod=LIS_tstamp_to_tod(last_close_flash_t)
+    first_close_flash_tod=LIS_tstamp_to_tod(first_LIS_event_t)
+    last_close_flash_tod=LIS_tstamp_to_tod(last_LIS_event_t)
     
     # if LIS record all on the same date or span two days
     if flash_DATE_STR2==flash_DATE_STR1:
@@ -907,7 +923,7 @@ for i, fname in enumerate(fname_list[0:1]):
         # here we geolocate all pixels at the flash starting time
         all_pixels_coordinates,pxpy=geolocate_all_pixels(t=f_t1_tstamp,one_second_df=l.one_second)
         all_pixels_latlon=np.hstack((all_pixels_coordinates.lat.reshape(-1,1),all_pixels_coordinates.lon.reshape(-1,1)))
-        all_pixels_xy=haversine_latlon_xy_conversion(all_pixels_latlon,NALMA_center)
+        all_pixels_xy=haversine_latlon_xy_conversion(all_pixels_latlon,LMA_center)
         
 
         #get fov of LIS at flash t1 and flash t2
@@ -925,7 +941,7 @@ for i, fname in enumerate(fname_list[0:1]):
         f_latlon=np.hstack((f_lat.reshape(-1,1),f_lon.reshape(-1,1)))
         f_lonlat=np.hstack((f_lon.reshape(-1,1),f_lat.reshape(-1,1)))
         
-        f_xy=haversine_latlon_xy_conversion(f_latlon,NALMA_center)
+        f_xy=haversine_latlon_xy_conversion(f_latlon,LMA_center)
         lma_x=f_xy[:,0]
         lma_y=f_xy[:,1]
         lma_z=f[:,8]/1e3
