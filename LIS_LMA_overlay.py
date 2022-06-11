@@ -385,42 +385,37 @@ def LMA_fnames_parse(fname):
             hhmmss_str=hhmmss_str+'00'
     
     
-    file_start_tod=int(hhmmss_str[0:2])*3600+int(hhmmss_str[2:4])*60+int(hhmmss_str[4:])
+    file_start_epoch_ns=pd.Timestamp(date_str).value+(int(hhmmss_str[0:2])*3600+int(hhmmss_str[2:4])*60+int(hhmmss_str[4:]))*int(1e9)
     duration_str=fname_split[i+3].split('.')[0]    
-    duration=int(duration_str)  
+    duration_ns=int(duration_str)*int(1e9) 
     
-    return lma_name, date_str,file_start_tod, duration
+    return lma_name, file_start_epoch_ns, duration_ns
 
-def find_involved_lma_file(NALMA_folder,LMA_NAME,DATE_STR,flash_t0,flash_t1):
-
+def find_involved_lma_file(NALMA_folder,LMA_NAME,first_LIS_event_t,last_LIS_event_t):
+    
+    first_t_ns=first_LIS_event_t.value
+    last_t_ns=last_LIS_event_t.value
+    
+    
     involved_fnames=[]
     LMA_fnames=os.listdir(NALMA_folder)
     for fname in LMA_fnames:
-        lma_name, date_str,file_start_tod, duration=LMA_fnames_parse(fname)
+        lma_name, file_start_epoch_ns, duration_ns=LMA_fnames_parse(fname)
         #print(lma_name,date_str,file_start_tod,duration)
-        file_end_tod=file_start_tod+duration
+        file_end_epoch_ns=file_start_epoch_ns+duration_ns
         
         # first make sure LMA network name matches
         if LMA_NAME != lma_name:
             continue
         
-        # then we mak esure date matches
-        if DATE_STR != date_str:
+        # flash comletely left of the lma file t range
+        if (first_t_ns<file_start_epoch_ns) and (last_t_ns<file_start_epoch_ns):
             continue
-        
-        # case1 flashes all contained in one LMA file
-        if (flash_t0>file_start_tod)&(flash_t1<file_end_tod):
+        # flash comletely right of the lma file t range
+        elif (first_t_ns>file_end_epoch_ns) and (last_t_ns>file_end_epoch_ns):
+            continue
+        else:
             involved_fnames.append(NALMA_folder+fname)
-            break
-        
-        # case2 flash intersecrted with LMA file beginning
-        if (flash_t0<file_start_tod)&(flash_t1>file_start_tod):
-            involved_fnames.append(NALMA_folder+fname)
-         
-        # case3 flash intersecrted with LMA file ending
-        if (flash_t0<file_end_tod)&(flash_t1>file_end_tod):
-            involved_fnames.append(NALMA_folder+fname)
-        
     return involved_fnames
 
 def d_point_to_points_2d(event, events):
@@ -791,7 +786,7 @@ for i, fname in enumerate(fname_list[0:1]):
     distance_thres_km=100
     first_LIS_event_t,last_LIS_event_t=find_time_ranges_of_LIS_events_over_LMA (E,LMA_center,distance_thres_km)
     # if no LIS events found, will return a empty list, then this file will be skipped
-    if len(first_LIS_event_t)==0:
+    if first_LIS_event_t==[]:
         continue
     
     ##################################################################################
@@ -810,7 +805,7 @@ for i, fname in enumerate(fname_list[0:1]):
     
     # find involved lma file names 
     if e2_date_str==e1_date_str: # LIS time ranges all in one day
-        involved_lma_files=find_involved_lma_file(NALMA_folder,LMA_NAME,e1_date_str,first_LIS_event_tod,last_LIS_event_tod)
+        involved_lma_files=find_involved_lma_file(NALMA_folder,LMA_NAME,first_LIS_event_t,last_LIS_event_t)
     else: # LIS time ranges span two days, that sometimes happens since LIS does not strictly break files by dates
         involved_lma_files=find_involved_lma_file(NALMA_folder,LMA_NAME,e2_date_str,first_LIS_event_tod,24*3600)
         involved_lma_files_second_day=find_involved_lma_file(NALMA_folder,LMA_NAME,e2_date_str,0,last_LIS_event_tod)
