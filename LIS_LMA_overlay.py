@@ -6,6 +6,7 @@ Created on Tue May  3 11:02:34 2022
 """
 from pyltg.core.lis import LIS
 import pyltg.core.lis as ltgLIS
+from pyltg.core.lma import LMA
 
 import os
 import pymap3d as pm
@@ -396,7 +397,6 @@ def find_involved_lma_file(NALMA_folder,LMA_NAME,first_LIS_event_t,last_LIS_even
     first_t_ns=first_LIS_event_t.value
     last_t_ns=last_LIS_event_t.value
     
-    
     involved_fnames=[]
     LMA_fnames=os.listdir(NALMA_folder)
     for fname in LMA_fnames:
@@ -407,7 +407,7 @@ def find_involved_lma_file(NALMA_folder,LMA_NAME,first_LIS_event_t,last_LIS_even
         # first make sure LMA network name matches
         if LMA_NAME != lma_name:
             continue
-        
+
         # flash comletely left of the lma file t range
         if (first_t_ns<file_start_epoch_ns) and (last_t_ns<file_start_epoch_ns):
             continue
@@ -804,16 +804,13 @@ for i, fname in enumerate(fname_list[0:1]):
     last_LIS_event_tod=LIS_tstamp_to_tod(last_LIS_event_t)
     
     # find involved lma file names 
-    if e2_date_str==e1_date_str: # LIS time ranges all in one day
-        involved_lma_files=find_involved_lma_file(NALMA_folder,LMA_NAME,first_LIS_event_t,last_LIS_event_t)
-    else: # LIS time ranges span two days, that sometimes happens since LIS does not strictly break files by dates
-        involved_lma_files=find_involved_lma_file(NALMA_folder,LMA_NAME,e2_date_str,first_LIS_event_tod,24*3600)
-        involved_lma_files_second_day=find_involved_lma_file(NALMA_folder,LMA_NAME,e2_date_str,0,last_LIS_event_tod)
-        for ffname in involved_lma_files_second_day:
-            involved_lma_files.append(ffname)
+    involved_lma_files=find_involved_lma_file(NALMA_folder,LMA_NAME,first_LIS_event_t,last_LIS_event_t)
+
     
     #load the lma file and extract those only within the time ranges of passover LIS events:
     for j, lma_fname in enumerate(involved_lma_files):
+        S_one_file=LMA(lma_fname)
+        import pdb;pdb.set_trace()
         S_one_file=read_lma_format_data_as_nparray(lma_fname,ref_lat,ref_lon,ref_alt)
         
         if j==0:
