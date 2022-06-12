@@ -793,7 +793,7 @@ for i, fname in enumerate(fname_list[0:1]):
     # lets extract lma and entln data based on the passover LIS data time range:
     ##################################################################################
     # exrtact lma data:
-        
+    # TODO: remove tod and datestr lines here since we will use epoch time instead
     # find the involved lma files
     e1_date_str=''.join(str(first_LIS_event_t)[:10].split('-'))
     e2_date_str=''.join(str(last_LIS_event_t)[:10].split('-'))
@@ -809,8 +809,6 @@ for i, fname in enumerate(fname_list[0:1]):
     
     #load the lma file and extract those only within the time ranges of passover LIS events:
     for j, lma_fname in enumerate(involved_lma_files):
-        S_one_file=LMA(lma_fname)
-        import pdb;pdb.set_trace()
         S_one_file=read_lma_format_data_as_nparray(lma_fname,ref_lat,ref_lon,ref_alt)
         
         if j==0:
