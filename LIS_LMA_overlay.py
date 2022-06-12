@@ -486,9 +486,9 @@ def flash_sorting(S,t_thres,d_thres,dd_method):
                     event[-1]=flash_id
                     f_buffer=np.vstack((f_buffer,event))
                     
-            ####################################################       
-            # clean the buffer, clean buffer every 200 sources
-            ####################################################                      
+            ##############################################################################       
+            # clean the buffer, clean buffer every 200 sources to make the function fast
+            ##############################################################################                      
             if (i%200)==0:
             #if i>=0:
                 f_buffer_t=f_buffer[:,3]
@@ -550,9 +550,12 @@ def flash_sorting(S,t_thres,d_thres,dd_method):
 def flash_type_assign(S_sorted_big_flash,cg_events,big_flash_info):
     
     # the column used to assign big_flash idx to a CG event, if the CG event is a match for a big flash
-    # default for unmatche is -999
+    # default for unmatches is -999
     parent_flash_idx_col=(np.ones(len(cg_events))*-999)
-    # cg_events=np.hstack((cg_events,big_flash_idx_col))
+
+    # keep track of each cg_events separation factor relative to lma flash
+    # because one CG event can be found as match for multiple lma flash
+    # so we keep track of the sep facor and assign cg event to the lma flash with min sep_factor 
     cg_events_sep_factor=np.ones(len(cg_events))*99999999
     
     cg_t=cg_events[:,4]
@@ -562,7 +565,7 @@ def flash_type_assign(S_sorted_big_flash,cg_events,big_flash_info):
     # big flash no of strokes, default is 0
     big_flash_no_strokes=np.zeros(len(big_flash_info)).reshape(-1,1)
     
-    # loop over each big flash
+    # loop over each big flash to find the cloest cg in CG events data base.
     for ii,f_info in enumerate(big_flash_info):
         f_t0=f_info[0]-1*1e-3
         f_t1=f_info[1]+1*1e-3
@@ -579,7 +582,6 @@ def flash_type_assign(S_sorted_big_flash,cg_events,big_flash_info):
             tf_one_flash=(S_sorted_big_flash[:,-1]==big_flash_info[ii,3])
             S_one_flash=S_sorted_big_flash[tf_one_flash,:]
             
-            # import pdb;pdb.set_trace()
             # loop over each of the matched_t_cg_events, futher check spatial and temperal requirement
             for kk, one_cg_event in enumerate(matched_t_cg_event):
                 row_no=idx_t_matched[kk] # the row num in cg_events
@@ -598,7 +600,7 @@ def flash_type_assign(S_sorted_big_flash,cg_events,big_flash_info):
     
     cg_events=np.hstack((cg_events,parent_flash_idx_col.reshape(-1,1))) 
     
-    # now lets loop over big_flash_info again, after cg_events have been assigned to parent flashes
+    # now lets loop over big_flash_info again, after cg_events have been fianlly assigned to parent flashes
     for ii,f_info in enumerate(big_flash_info):
         
         matched_rows=np.where(parent_flash_idx_col==ii)[0]
@@ -787,7 +789,7 @@ for i, fname in enumerate(fname_list[0:1]):
     first_LIS_event_t,last_LIS_event_t=find_time_ranges_of_LIS_events_over_LMA (E,LMA_center,distance_thres_km)
     # if no LIS events found, will return a empty list, then this file will be skipped
     if first_LIS_event_t==[]:
-        continue
+        continue 
     
     ##################################################################################
     # lets extract lma and entln data based on the passover LIS data time range:
