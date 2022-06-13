@@ -578,6 +578,44 @@ def flash_sorting(S,t_thres,d_thres,dd_method):
     
     return S, flash_info
 
+def load_ENTLN_data(ENTLN_folder,first_LIS_event_t,last_LIS_event_t):
+    e1_date_str=''.join(str(first_LIS_event_t)[:10].split('-'))
+    e2_date_str=''.join(str(last_LIS_event_t)[:10].split('-'))
+
+    ENTLN_file1=ENTLN_folder+e1_date_str+'.npy'
+    if os.path.exists(ENTLN_file1) is True:
+        EN=np.load(ENTLN_file1)
+    else:
+        EN=np.array([])
+        print(f"EN data: {ENTLN_file1} does not exist, created an empty array instead")
+
+    # if LIS data span two days:
+    if e2_date_str!=e1_date_str:
+        ENTLN_file2=ENTLN_folder+e2_date_str+'.npy'
+        if os.path.exists(ENTLN_file2) is True:
+            EN_addtional=np.load(ENTLN_file2)
+            EN=np.vstack((EN,EN_addtional))
+        else:
+            print(f"EN data: {ENTLN_file2} does not exist")
+
+    #convert entln time to tod and lat lon to  xy in km
+    EN_t_epoch=(EN[:,0]).reshape(-1,1)
+    fake_EN_alt=np.zeros(len(EN_t_epoch)).reshape(-1,1) # assume all at zero 
+    EN_lat=EN[:,1].reshape(-1,1)
+    EN_lon=EN[:,2].reshape(-1,1)
+    EN_type=EN[:,3].reshape(-1,1)
+    EN_pc=(EN[:,4]/1e3).reshape(-1,1)
+    
+    EN_lla=np.hstack((EN_lat,EN_lon,fake_EN_alt)) 
+    EN_xyz=geodetic_to_enu(EN_lla,ref_lat,ref_lon,ref_alt)
+    EN_xy_km=EN_xyz[:,0:2]/1e3
+    
+    # EN_type are also for fake event ID, just to match format
+    EN_events=np.hstack((EN_type,EN_xy_km,fake_EN_alt,EN_t_epoch,EN_pc)) 
+    cg_events=EN_events[EN_type.flatten()==0,:]
+
+    return cg_events     
+
 def flash_type_assign(S_sorted_big_flash,cg_events,big_flash_info):
     
     # the column used to assign big_flash idx to a CG event, if the CG event is a match for a big flash
@@ -781,7 +819,7 @@ fname_list=txt_file.read().splitlines()
 LMA_NAME='NALMA'
 LMA_L1_folder='E:/NALMA_LIS_project/'
 ENTLN_folder='E:/ENTLN_LIS_project/'
-
+EN_data_availibility=True
 
 fig_folder='C:/Users/yanan/Desktop/LIS_fig/'
 
@@ -802,8 +840,10 @@ lma_flash_no=0
 
 for i, fname in enumerate(fname_list[0:1]):
     # print(str(i+1)+'/'+str(len(fname_list)),fname)
-    
+
+    ########################################################################
     # load the ~90 min LIS data
+    ########################################################################
     l = LIS(fname)
     F=l.flashes.data
     G=l.groups.data
@@ -821,6 +861,7 @@ for i, fname in enumerate(fname_list[0:1]):
     # lets extract lma and entln data based on the passover LIS data time range:
     ##################################################################################
     # exrtact lma data in the time range:
+    # TODO: DO WE REALLY NEED THE DATASTRING?
     e1_date_str=''.join(str(first_LIS_event_t)[:10].split('-'))
     e2_date_str=''.join(str(last_LIS_event_t)[:10].split('-'))
     S_selected=extract_lma_data_in_LIS_passover_time_range(LMA_L1_folder,LMA_NAME,first_LIS_event_t,last_LIS_event_t)
@@ -832,33 +873,12 @@ for i, fname in enumerate(fname_list[0:1]):
     dd_method='2d'
     S_sorted,flash_info=flash_sorting(S_selected,t_thres,d_thres,dd_method='2d')
     
-
-    # lets then extract ENLTN data
-    ENTLN_file=ENTLN_folder+e1_date_str+'.npy'
-    if os.path.exists(ENTLN_file) is True:
-        EN=np.load(ENTLN_file)
-    else:
-        EN=np.array([])
-    
-    #convert entln time to tod and lat lon to  xy in km
-    EN_t_unix_ns=(EN[:,0]*1e9).astype(np.int64)
-    EN_tod=((EN_t_unix_ns-ref_t_ns_4_tod)/1e9).reshape(-1,1)
-    
-    fake_EN_alt=np.zeros(len(EN_tod)).reshape(-1,1) # assume all at zero 
-    EN_lat=EN[:,1].reshape(-1,1)
-    EN_lon=EN[:,2].reshape(-1,1)
-    EN_type=EN[:,3].reshape(-1,1)
-    EN_pc=(EN[:,4]/1e3).reshape(-1,1)
-    
-    EN_lla=np.hstack((EN_lat,EN_lon,fake_EN_alt))
-    
-    EN_xyz=geodetic_to_enu(EN_lla,ref_lat,ref_lon,ref_alt)
-    EN_xy_km=EN_xyz[:,0:2]/1e3
-    
-    # EN_type are also for fake event ID, just to match format
-    EN_events=np.hstack((EN_type,EN_xy_km,fake_EN_alt,EN_tod,EN_pc)) 
-    cg_events=EN_events[EN_type.flatten()==0,:]
-    
+    # extract ENLTN data, Note include EN data in this analyis is optional
+    # note in this analysis, EN data is in numpy array format, and has already been filtered 
+    # with temporal and spatial criteria via the data request, each EN data is saved as file by date 
+    if EN_data_availibility == True:
+        cg_events=load_ENTLN_data(ENTLN_folder,first_LIS_event_t,last_LIS_event_t)
+   
      # keep only flashes with sources more than a threshold
     n_sources_thres=50
     n_sources_col=flash_info[:,2]
