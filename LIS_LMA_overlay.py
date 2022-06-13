@@ -572,7 +572,7 @@ def flash_sorting(S,t_thres,d_thres,dd_method):
                     n_sources=len(remove_idx)
                     flash_info[int(ID),0:4]=np.array([flash_t1,flash_t2,n_sources,f_buffer[remove_idx[0],-1]])
                  
-    # delete those row with zeros only
+    # delete those rows with zeros only, remove over allocated rows
     flash_info_sum=np.sum(flash_info,axis=1)
     flash_info=flash_info[flash_info_sum!=0]
     
@@ -871,25 +871,30 @@ for i, fname in enumerate(fname_list[0:1]):
     t_thres=0.2 # unit second
     d_thres=5 # unit km
     dd_method='2d'
+    # S_sorted format: x(km),y(km),z(km),t(epoch in sec),rchi2,power,lla,flash_id
+    # flash_info format: flash_t1,flash_t2,no_lma_sources,flash_id
     S_sorted,flash_info=flash_sorting(S_selected,t_thres,d_thres,dd_method='2d')
+
+    # Here we keep only flashes with number of sources more than a threshold
+    n_sources_thres=50
+    n_sources_col=flash_info[:,2]
+       
+    # flash info for big flash only
+    big_flash_info=flash_info[n_sources_col>n_sources_thres,:]
+    big_flash_fidx=big_flash_info[:,3]
     
+    #here we keep S_sorted in big flashes only
+    tf_row_keep=np.isin(S_sorted[:,-1],big_flash_fidx)
+    S_sorted_big_flash=S_sorted[tf_row_keep,:]
+
     # extract ENLTN data, Note include EN data in this analyis is optional
     # note in this analysis, EN data is in numpy array format, and has already been filtered 
     # with temporal and spatial criteria via the data request, each EN data is saved as file by date 
     if EN_data_availibile == True:
         cg_events=load_ENTLN_data(ENTLN_folder,first_LIS_event_t,last_LIS_event_t)
    
-     # keep only flashes with sources more than a threshold
-    n_sources_thres=50
-    n_sources_col=flash_info[:,2]
-        
-    # flash info for big flash only
-    big_flash_info=flash_info[n_sources_col>n_sources_thres,:]
-    big_flash_fidx=big_flash_info[:,3]
-    
-    #here we keep S_sorted for big flash only
-    tf_row_keep=np.isin(S_sorted[:,-1],big_flash_fidx)
-    S_sorted_big_flash=S_sorted[tf_row_keep,:]
+
+
     
     # big flash info each column: flash_t0, flash_t1, num_sources, flash_idx, flash_type, number of strokes
     big_flash_info,cg_events=flash_type_assign(S_sorted_big_flash,cg_events,big_flash_info)
