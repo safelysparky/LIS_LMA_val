@@ -430,6 +430,29 @@ def d_point_to_points_2d(event, events):
     dd=np.sqrt((events[:,0]-event[0])**2+(events[:,1]-event[1])**2)
     return dd
 
+def extract_lma_data_in_LIS_passover_time_range(LMA_L1_folder,LMA_NAME,first_LIS_event_t,last_LIS_event_t):
+    first_LIS_event_epoch=pd.Timestamp(first_LIS_event_t).value/(int(1e9))
+    last_LIS_event_epoch=pd.Timestamp(last_LIS_event_t).value/(int(1e9))
+
+    # find involved lma file names 
+    involved_lma_files=find_involved_lma_file(LMA_L1_folder,LMA_NAME,first_LIS_event_t,last_LIS_event_t)
+
+    #load the lma file and extract those only within the time ranges of passover LIS events:
+    for j, lma_fname in enumerate(involved_lma_files):
+        S_one_file=read_lma_format_data_as_nparray_with_epoch_t(lma_fname,ref_lat,ref_lon,ref_alt)
+        
+        if j==0:
+            S=S_one_file
+        else:
+            # stack them if multiple files needs to be loaded
+            S=np.vstack((S,S_one_file))
+    
+    #shink it to the time range we needed, -/+1s of the LIS passover events time ranges:
+    idx_keep=np.where((S[:,3]>first_LIS_event_epoch-1)&(S[:,3]<last_LIS_event_epoch+1))[0]
+    S_selected=S[idx_keep,:]
+    return S_selected
+
+
 def flash_sorting(S,t_thres,d_thres,dd_method):
     #format of S [X,Y,Z,T,....] # make sure first 4 colums are xyzt.
     ## first sort S based on timings
@@ -756,7 +779,7 @@ txt_file = open("C:/Users/yanan/Desktop/git_local/LIS_LMA_val/LIS_NALMA_matched_
 fname_list=txt_file.read().splitlines() 
 
 LMA_NAME='NALMA'
-NALMA_folder='E:/NALMA_LIS_project/'
+LMA_L1_folder='E:/NALMA_LIS_project/'
 ENTLN_folder='E:/ENTLN_LIS_project/'
 
 
@@ -769,11 +792,6 @@ loaded_lma_fname=''
 map_proj = ccrs.Mercator()
 ll_proj_geo = ccrs.Geodetic()
 ll_proj = ccrs.PlateCarree()
-
-# flash sorting parameters:
-t_thres=0.2 # unit second
-d_thres=5 # unit km
-dd_method='2d'
 
 #get the colormap
 cmap=cm.get_cmap('binary',100)
@@ -802,39 +820,16 @@ for i, fname in enumerate(fname_list[0:1]):
     ##################################################################################
     # lets extract lma and entln data based on the passover LIS data time range:
     ##################################################################################
-    # exrtact lma data:
-    # TODO: remove tod and datestr lines here since we will use epoch time instead
-    # find the involved lma files
+    # exrtact lma data in the time range:
     e1_date_str=''.join(str(first_LIS_event_t)[:10].split('-'))
     e2_date_str=''.join(str(last_LIS_event_t)[:10].split('-'))
-    
-    ref_t_ns_4_tod=pd.Timestamp(e1_date_str).value # use it as reference when calculate tod
-    
-    first_LIS_event_tod=LIS_tstamp_to_tod(first_LIS_event_t)
-    last_LIS_event_tod=LIS_tstamp_to_tod(last_LIS_event_t)
+    S_selected=extract_lma_data_in_LIS_passover_time_range(LMA_L1_folder,LMA_NAME,first_LIS_event_t,last_LIS_event_t)
 
-    first_LIS_event_epoch=pd.Timestamp(first_LIS_event_t).value/(int(1e9))
-    last_LIS_event_epoch=pd.Timestamp(last_LIS_event_t).value/(int(1e9))
-
-    
-    # find involved lma file names 
-    involved_lma_files=find_involved_lma_file(NALMA_folder,LMA_NAME,first_LIS_event_t,last_LIS_event_t)
-
-    #load the lma file and extract those only within the time ranges of passover LIS events:
-    for j, lma_fname in enumerate(involved_lma_files):
-        S_one_file=read_lma_format_data_as_nparray_with_epoch_t(lma_fname,ref_lat,ref_lon,ref_alt)
-        
-        if j==0:
-            S=S_one_file
-        else:
-            # stack them if multiple files needs to be loaded
-            S=np.vstack((S,S_one_file))
-    
-    #shink it to the time range we needed, -/+1s of the LIS passover events time ranges:
-    idx_keep=np.where((S[:,3]>first_LIS_event_epoch-1)&(S[:,3]<last_LIS_event_epoch+1))[0]
-    S_selected=S[idx_keep,:]
-    
-    #now lets sort lma sources into flashes
+    #sort lma sources into flashes
+    # flash sorting parameters:
+    t_thres=0.2 # unit second
+    d_thres=5 # unit km
+    dd_method='2d'
     S_sorted,flash_info=flash_sorting(S_selected,t_thres,d_thres,dd_method='2d')
     
 
