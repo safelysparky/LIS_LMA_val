@@ -338,11 +338,15 @@ def geodetic_to_enu(lla,ref_lat,ref_lon,ref_alt):
     return xyz 
 
 
-def read_lma_format_data_as_nparray(txt_filename,ref_lat,ref_lon,ref_alt):
-    #COLMA center
+def read_lma_format_data_as_nparray_with_epoch_t(txt_filename,ref_lat,ref_lon,ref_alt):
+    # eg., COLMA center
     # ref_lat=40.4463980
     # ref_lon=-104.6368130
     # ref_alt=1000
+    fname_only=os.path.basename(txt_filename)
+    lma_name, file_start_epoch_ns, duration_ns, date_str=LMA_fname_parse(fname_only)
+    date_ref_t_ns=pd.Timestamp(date_str).value
+
     header_line=find_lma_data_line(txt_filename)+1
     # note here we only used the first six columns, because the sta msk in hex is not compatible
     L1=np.loadtxt(txt_filename,skiprows=header_line,usecols=(0,1,2,3,4,5))
@@ -356,6 +360,10 @@ def read_lma_format_data_as_nparray(txt_filename,ref_lat,ref_lon,ref_alt):
     rchi2=L1[:,4].reshape(-1,1)
     power=L1[:,5].reshape(-1,1)
     t=L1[:,0].reshape(-1,1)
+
+    # convert tod to epoch t in seconds, note this only keep accuracy to us
+    t=t+date_ref_t_ns/int(1e9)
+
     xyz=geodetic_to_enu(lla,ref_lat,ref_lon,ref_alt)
     xyz_km=xyz/1e3
     
@@ -367,7 +375,7 @@ def read_lma_format_data_as_nparray(txt_filename,ref_lat,ref_lon,ref_alt):
     S=S[idx_keep,:]
     return S
 
-def LMA_fnames_parse(fname):
+def LMA_fname_parse(fname):
     #fname1: goesr_plt_NALMA_20170301_19_3600.dat.gz which only give hours without mmss
     #fname2: goesr_plt_COLMA_20170531_233000_0600.dat.gz which only give hhmmss
     fname_split=fname.split('_')
@@ -390,7 +398,7 @@ def LMA_fnames_parse(fname):
     duration_str=fname_split[i+3].split('.')[0]    
     duration_ns=int(duration_str)*int(1e9) 
     
-    return lma_name, file_start_epoch_ns, duration_ns
+    return lma_name, file_start_epoch_ns, duration_ns, date_str
 
 def find_involved_lma_file(NALMA_folder,LMA_NAME,first_LIS_event_t,last_LIS_event_t):
     
@@ -400,7 +408,7 @@ def find_involved_lma_file(NALMA_folder,LMA_NAME,first_LIS_event_t,last_LIS_even
     involved_fnames=[]
     LMA_fnames=os.listdir(NALMA_folder)
     for fname in LMA_fnames:
-        lma_name, file_start_epoch_ns, duration_ns=LMA_fnames_parse(fname)
+        lma_name, file_start_epoch_ns, duration_ns, date_str=LMA_fname_parse(fname)
         #print(lma_name,date_str,file_start_tod,duration)
         file_end_epoch_ns=file_start_epoch_ns+duration_ns
         
@@ -804,14 +812,17 @@ for i, fname in enumerate(fname_list[0:1]):
     
     first_LIS_event_tod=LIS_tstamp_to_tod(first_LIS_event_t)
     last_LIS_event_tod=LIS_tstamp_to_tod(last_LIS_event_t)
+
+    first_LIS_event_epoch=pd.Timestamp(first_LIS_event_t).value/(int(1e9))
+    last_LIS_event_epoch=pd.Timestamp(last_LIS_event_t).value/(int(1e9))
+
     
     # find involved lma file names 
     involved_lma_files=find_involved_lma_file(NALMA_folder,LMA_NAME,first_LIS_event_t,last_LIS_event_t)
 
-    
     #load the lma file and extract those only within the time ranges of passover LIS events:
     for j, lma_fname in enumerate(involved_lma_files):
-        S_one_file=read_lma_format_data_as_nparray(lma_fname,ref_lat,ref_lon,ref_alt)
+        S_one_file=read_lma_format_data_as_nparray_with_epoch_t(lma_fname,ref_lat,ref_lon,ref_alt)
         
         if j==0:
             S=S_one_file
@@ -819,8 +830,8 @@ for i, fname in enumerate(fname_list[0:1]):
             # stack them if multiple files needs to be loaded
             S=np.vstack((S,S_one_file))
     
-    #shink it to the time range we needed, -/+3s of the f_close ranges:
-    idx_keep=np.where((S[:,3]>first_LIS_event_tod-3)&(S[:,3]<last_LIS_event_tod+3))[0]
+    #shink it to the time range we needed, -/+1s of the LIS passover events time ranges:
+    idx_keep=np.where((S[:,3]>first_LIS_event_epoch-1)&(S[:,3]<last_LIS_event_epoch+1))[0]
     S_selected=S[idx_keep,:]
     
     #now lets sort lma sources into flashes
