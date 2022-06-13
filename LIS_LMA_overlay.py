@@ -578,6 +578,20 @@ def flash_sorting(S,t_thres,d_thres,dd_method):
     
     return S, flash_info
 
+def filter_flashes_based_on_number_of_sources(S_sorted,big_flash_info,n_sources_thres):
+    n_sources_col=flash_info[:,2]
+    
+    # flash info for big flash only
+    big_flash_info=flash_info[n_sources_col>n_sources_thres,:]
+    big_flash_fidx=big_flash_info[:,3]
+    
+    #here we keep S_sorted in big flashes only
+    tf_row_keep=np.isin(S_sorted[:,-1],big_flash_fidx)
+    S_sorted_big_flash=S_sorted[tf_row_keep,:]
+
+    return S_sorted_big_flash, big_flash_info
+
+
 def load_ENTLN_data(ENTLN_folder,first_LIS_event_t,last_LIS_event_t):
     e1_date_str=''.join(str(first_LIS_event_t)[:10].split('-'))
     e2_date_str=''.join(str(last_LIS_event_t)[:10].split('-'))
@@ -695,6 +709,7 @@ def flash_type_assign(S_sorted_big_flash,cg_events,big_flash_info):
     big_flash_info=np.hstack((big_flash_info,big_flash_type,big_flash_no_strokes))
                     
     return big_flash_info,cg_events
+
 
 def check_if_within_polygon(fov1_lonlat,f_lat,f_lon):
     polygon_fov1=Polygon(fov1_lonlat)
@@ -877,17 +892,9 @@ for i, fname in enumerate(fname_list[0:1]):
 
     # Here we keep only flashes with number of sources more than a threshold
     n_sources_thres=50
-    n_sources_col=flash_info[:,2]
-       
-    # flash info for big flash only
-    big_flash_info=flash_info[n_sources_col>n_sources_thres,:]
-    big_flash_fidx=big_flash_info[:,3]
-    
-    #here we keep S_sorted in big flashes only
-    tf_row_keep=np.isin(S_sorted[:,-1],big_flash_fidx)
-    S_sorted_big_flash=S_sorted[tf_row_keep,:]
+    S_sorted_big_flash, big_flash_info=filter_flashes_based_on_number_of_sources(S_sorted,big_flash_info,n_sources_thres)
 
-    # extract ENLTN data, Note include EN data in this analyis is optional
+    # extract ENLTN data, Note include EN data is optional
     # note in this analysis, EN data is in numpy array format, and has already been filtered 
     # with temporal and spatial criteria via the data request, each EN data is saved as a file by date 
     if EN_data_available == True:
