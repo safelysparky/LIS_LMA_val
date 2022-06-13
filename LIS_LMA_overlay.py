@@ -819,7 +819,7 @@ fname_list=txt_file.read().splitlines()
 LMA_NAME='NALMA'
 LMA_L1_folder='E:/NALMA_LIS_project/'
 ENTLN_folder='E:/ENTLN_LIS_project/'
-EN_data_availibile=True
+EN_data_available=True
 
 fig_folder='C:/Users/yanan/Desktop/LIS_fig/'
 
@@ -889,15 +889,15 @@ for i, fname in enumerate(fname_list[0:1]):
 
     # extract ENLTN data, Note include EN data in this analyis is optional
     # note in this analysis, EN data is in numpy array format, and has already been filtered 
-    # with temporal and spatial criteria via the data request, each EN data is saved as file by date 
-    if EN_data_availibile == True:
+    # with temporal and spatial criteria via the data request, each EN data is saved as a file by date 
+    if EN_data_available == True:
         cg_events=load_ENTLN_data(ENTLN_folder,first_LIS_event_t,last_LIS_event_t)
-   
 
-
-    
-    # big flash info each column: flash_t0, flash_t1, num_sources, flash_idx, flash_type, number of strokes
-    big_flash_info,cg_events=flash_type_assign(S_sorted_big_flash,cg_events,big_flash_info)
+        # assign a flash as IC or CG based on if a ENTLN CG is present in the LMA flash:
+        # a CG is considered belonging to the lma flash if the parent LMA flash have 
+        # more than one sources within 30 ms and 3 km of the CG
+        # big flash info format: flash_t0, flash_t1, num_sources, flash_idx, flash_type, number of strokes
+        big_flash_info,cg_events=flash_type_assign(S_sorted_big_flash,cg_events,big_flash_info)
     
     
     for ii, info in enumerate(big_flash_info):
