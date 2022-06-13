@@ -834,12 +834,12 @@ fname_list=txt_file.read().splitlines()
 LMA_NAME='NALMA'
 LMA_L1_folder='E:/NALMA_LIS_project/'
 ENTLN_folder='E:/ENTLN_LIS_project/'
-EN_data_available=True
-
 fig_folder='C:/Users/yanan/Desktop/LIS_fig/'
 
+EN_data_available=True
 
-loaded_lma_fname=''
+M={} # initialize the dictionary for LMA-LIS match
+in_FOV_lma_flash_no=0 # the initial value that will be used for LMA-LIS match dict key
 
 # We're going to be doing some plotting, so set up some variables
 map_proj = ccrs.Mercator()
@@ -848,10 +848,6 @@ ll_proj = ccrs.PlateCarree()
 
 #get the colormap
 cmap=cm.get_cmap('binary',100)
-
-# each row correspond to one LMA flash in FOV OF lis,
-#fname_number (i) lma_flash_no (ii), Detected by LIS (true or false), X, Y, num_sources
-lma_flash_no=0
 
 for i, fname in enumerate(fname_list[0:1]):
     # print(str(i+1)+'/'+str(len(fname_list)),fname)
@@ -906,6 +902,8 @@ for i, fname in enumerate(fname_list[0:1]):
         # big flash info format: flash_t0, flash_t1, num_sources, flash_idx, flash_type, number of strokes
         big_flash_info,cg_events=flash_type_assign(S_sorted_big_flash,cg_events,big_flash_info)
     
+    # Get only LMA flashes that are within of FOV of LIS, and put them into a dictinary
+
     
     for ii, info in enumerate(big_flash_info):
         print(ii)
