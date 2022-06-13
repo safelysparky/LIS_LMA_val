@@ -819,7 +819,7 @@ fname_list=txt_file.read().splitlines()
 LMA_NAME='NALMA'
 LMA_L1_folder='E:/NALMA_LIS_project/'
 ENTLN_folder='E:/ENTLN_LIS_project/'
-EN_data_availibility=True
+EN_data_availibile=True
 
 fig_folder='C:/Users/yanan/Desktop/LIS_fig/'
 
@@ -876,7 +876,7 @@ for i, fname in enumerate(fname_list[0:1]):
     # extract ENLTN data, Note include EN data in this analyis is optional
     # note in this analysis, EN data is in numpy array format, and has already been filtered 
     # with temporal and spatial criteria via the data request, each EN data is saved as file by date 
-    if EN_data_availibility == True:
+    if EN_data_availibile == True:
         cg_events=load_ENTLN_data(ENTLN_folder,first_LIS_event_t,last_LIS_event_t)
    
      # keep only flashes with sources more than a threshold
