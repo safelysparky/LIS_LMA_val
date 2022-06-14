@@ -698,6 +698,24 @@ def filter_flashes_within_FOV(S_sorted_big_flash, big_flash_info,l,M,in_FOV_lma_
                     
     return M,in_FOV_lma_flash_no
 
+def get_lma_convext_hull_polygon(f_xy):
+    
+    # determine the convex hull of the LMA flash in 2D
+    assert len(f_xy)>2 # MAKRE SURE lma SOURCES ARE MORE THAN 2
+    
+    lma_x=f_xy[:,0]
+    lma_y=f_xy[:,1]
+    hull = ConvexHull(f_xy)
+    flash_area=hull.volume
+    
+    ## here we need to get the vertices of the convex hull and based on that create a polygon object
+    hull_x=(lma_x[hull.vertices]).reshape(-1,1)
+    hull_y=(lma_y[hull.vertices]).reshape(-1,1)
+    hull_xy=np.hstack((hull_x,hull_y))
+    rr=LinearRing(hull_xy)
+    hull_polygon = Polygon(rr)
+    
+    return hull_polygon
 
 def LMA_LIS_compare(M,l,batch_flashes_idx,LMA_center):
     
@@ -1030,7 +1048,8 @@ for i, fname in enumerate(fname_list[0:1]):
     # Lets further filter out LMA flashes that were out of the LIS fov and put those in FOV in a dictionary
     # in addtion, if entln cg data are provided, RSs will be assgined to LMA flashes and flash type will be given
     M, in_FOV_lma_flash_no_updated =filter_flashes_within_FOV(S_sorted_big_flash, big_flash_info, l, M, in_FOV_lma_flash_no,EN_data_available, cg_events)
-    # the flashes idx of this batch
+    
+    # the flashes idx (key in M dictionary) of this batch LIS file
     batch_flashes_idx=np.arange(in_FOV_lma_flash_no+1,in_FOV_lma_flash_no_updated+1)
     
     
@@ -1050,6 +1069,7 @@ for i, fname in enumerate(fname_list[0:1]):
         f_lat=f[:,6]
         f_lon=f[:,7]
         f_latlon=np.hstack((f_lat.reshape(-1,1),f_lon.reshape(-1,1)))
+        f_xy=haversine_latlon_xy_conversion(f_latlon,LMA_center)
         
         f_t1_tstamp=pd.to_datetime(f_t1, unit='s', origin='unix')
         # f_t2_tstamp=pd.to_datetime(f_t2, unit='s', origin='unix')
@@ -1059,21 +1079,10 @@ for i, fname in enumerate(fname_list[0:1]):
         all_pixels_latlon=np.hstack((all_pixels_coordinates.lat.reshape(-1,1),all_pixels_coordinates.lon.reshape(-1,1)))
         all_pixels_xy=haversine_latlon_xy_conversion(all_pixels_latlon,LMA_center)
         
-        # determine the convex hull of the LMA flash in 2D
-        assert len(f_t)>2 # MAKRE SURE lma SOURCES ARE MORE THAN 2
-        f_xy=haversine_latlon_xy_conversion(f_latlon,LMA_center)
-        lma_x=f_xy[:,0]
-        lma_y=f_xy[:,1]
-        hull = ConvexHull(f_xy)
-        flash_area=hull.volume
-        
-        ## here we need to get the vertices of the convex hull and based on that create a polygon object
-        hull_x=(lma_x[hull.vertices]).reshape(-1,1)
-        hull_y=(lma_y[hull.vertices]).reshape(-1,1)
-        hull_xy=np.hstack((hull_x,hull_y))
-        rr=LinearRing(hull_xy)
-        hull_polygon = Polygon(rr)
-        
+        # get the convexhull polygon of the lma flash
+        # TODO: here i need a line for hull in lat and lon
+        hull_polygon=get_lma_convext_hull_polygon(f_xy)
+
         # expand the convex hull by 2 km to account of location offset of LIS
         hull_polygon_expanded = Polygon(hull_polygon.buffer(2.0).exterior) 
         
@@ -1083,7 +1092,14 @@ for i, fname in enumerate(fname_list[0:1]):
         #find the corresponding px and py for the centroid
         d_pixels_2_centroid=d_point_to_points_2d([hull_centroid_x,hull_centroid_y],all_pixels_xy)
         centroid_pixel_idx=np.where((d_pixels_2_centroid<5)&(d_pixels_2_centroid==np.min(d_pixels_2_centroid)))[0][0]
+        if len(centroid_pixel_idx)==0:
+            raise Exception ('the centroid can not be geolocated while the flash is in FOV, something must be wrong')
         centroid_pxpy=pxpy[centroid_pixel_idx]
+        
+        # detemine if it is day or night when this flash occurred
+        sunrise_t_list,sunset_t_list=find_sunrise_sunset_times(ref_lat,ref_lon,e1_date_str)
+        
+        sunrise_diff_hours, sunset_diff_hours, dn= determine_day_night(sunrise_t_list,sunset_t_list,f_t1_tstamp_till_us)
         
         
         M[f_idx]['flash area']=flash_area
