@@ -262,15 +262,14 @@ def haversine_latlon_xy_conversion(latlon1, ref_latlon):
     
     return xy_km_array
 
-def group_t_stamps_to_tod(group_t_stamps):
-    first_group_t_stamp=str(group_t_stamps.iloc[0])[:10] #eg '2017-03-01'
-    ref_unix_ns=pd.Timestamp(first_group_t_stamp).value # use it as reference
-    group_tod=[]
-    for t_stamps in group_t_stamps:
-        t_tod=(t_stamps.value-ref_unix_ns)/1e9
-        group_tod.append(t_tod)
+def group_pd_tstamps_to_epoch(group_t_stamps):
+    
+    group_epoch=np.zeros(len(group_t_stamps),dtype=np.float64)
+    for i, t_stamps in enumerate(group_t_stamps):
+        t_epoch=t_stamps.value/(int(1e9))
+        group_epoch[i]=t_epoch
         
-    return group_tod
+    return group_epoch
 
 def LIS_tstamp_to_tod(tstamp):
     tstamp_str=str(tstamp)[:10] #eg '2017-03-01'
@@ -726,61 +725,8 @@ def get_lma_convext_hull_polygon(f_xy):
     hull_xy=np.hstack((hull_x,hull_y))
     rr=LinearRing(hull_xy)
     hull_polygon = Polygon(rr)
-    
-    return hull_polygon
 
-def LMA_LIS_compare(M,l,batch_flashes_idx,LMA_center):
-    
-    for f_idx in batch_flashes_idx:
-        # now the f is in the format of (x,y,z,t,chi,power,lla,flash_ID), in which xyz are in km
-        f=M[f_idx]['LMA']
-                
-        f_t=f[:,3]
-        f_t1=np.min(f_t)
-        f_t2=np.max(f_t)
-        f_lat=f[:,6]
-        f_lon=f[:,7]
-        f_latlon=np.hstack((f_lat.reshape(-1,1),f_lon.reshape(-1,1)))
-    
-        f_t1_tstamp=pd.to_datetime(f_t1, unit='s', origin='unix')
-        # f_t2_tstamp=pd.to_datetime(f_t2, unit='s', origin='unix')
-            
-        # here we geolocate all pixels at the flash starting time, for later finding the hull centroid's pxpy
-        all_pixels_coordinates,pxpy=geolocate_all_pixels(t=f_t1_tstamp,one_second_df=l.one_second)
-        all_pixels_latlon=np.hstack((all_pixels_coordinates.lat.reshape(-1,1),all_pixels_coordinates.lon.reshape(-1,1)))
-        all_pixels_xy=haversine_latlon_xy_conversion(all_pixels_latlon,LMA_center)
-        
-        # determine the convex hull of the LMA flash in 2D
-        assert len(f_t)>2 # MAKRE SURE lma SOURCES ARE MORE THAN 2
-        f_xy=haversine_latlon_xy_conversion(f_latlon,LMA_center)
-        lma_x=f_xy[:,0]
-        lma_y=f_xy[:,1]
-        hull = ConvexHull(f_xy)
-        flash_area=hull.volume
-        
-        ## here we need to get the vertices of the convex hull and based on that create a polygon object
-        hull_x=(lma_x[hull.vertices]).reshape(-1,1)
-        hull_y=(lma_y[hull.vertices]).reshape(-1,1)
-        hull_xy=np.hstack((hull_x,hull_y))
-        rr=LinearRing(hull_xy)
-        hull_polygon = Polygon(rr)
-        # !!!!!hull_polygon_expanded = Polygon(hull_polygon.buffer(2.0).exterior) 
-        
-        #find the centroid of the LMA polygon (before expanding)
-        hull_centroid_x,hull_centroid_y=hull_polygon.centroid.coords.xy
-        
-        #find the corresponding px and py for the centroid
-        d_pixels_2_centroid=d_point_to_points_2d([hull_centroid_x,hull_centroid_y],all_pixels_xy)
-        centroid_pixel_idx=np.where((d_pixels_2_centroid<5)&(d_pixels_2_centroid==np.min(d_pixels_2_centroid)))[0][0]
-        centroid_pxpy=pxpy[centroid_pixel_idx]
-        
-        
-        M[in_FOV_lma_flash_no]['flash area']=flash_area
-        M[in_FOV_lma_flash_no]['centroid pxpy']=centroid_pxpy
-        M[in_FOV_lma_flash_no]['convexhull polygon']=hull_polygon
-    
-    
-    return []
+    return hull_polygon
 
 
 def flash_type_assign(S_sorted_big_flash,cg_events,big_flash_info):
@@ -960,6 +906,106 @@ def expand_E2(E2,G,E):
     
     return E2
 
+def LMA_LIS_match(M, batch_flashes_idx,l,LMA_center):
+    for f_idx in batch_flashes_idx:
+        # now the f is in the format of (x,y,z,t,chi,power,lla,flash_ID), in which xyz are in km
+        f=M[f_idx]['LMA']
+                
+        f_t=f[:,3]
+        f_t1=np.min(f_t)
+        f_t2=np.max(f_t)
+        f_lat=f[:,6]
+        f_lon=f[:,7]
+        f_latlon=np.hstack((f_lat.reshape(-1,1),f_lon.reshape(-1,1)))
+        f_xy=haversine_latlon_xy_conversion(f_latlon,LMA_center)
+        
+        f_t1_tstamp=pd.to_datetime(f_t1, unit='s', origin='unix')
+        # f_t2_tstamp=pd.to_datetime(f_t2, unit='s', origin='unix')
+        
+        # here we geolocate all pixels at the flash starting time, for later finding the hull centroid's pxpy
+        all_pixels_coordinates,pxpy=geolocate_all_pixels(t=f_t1_tstamp,one_second_df=l.one_second)
+        all_pixels_latlon=np.hstack((all_pixels_coordinates.lat.reshape(-1,1),all_pixels_coordinates.lon.reshape(-1,1)))
+        all_pixels_xy=haversine_latlon_xy_conversion(all_pixels_latlon,LMA_center)
+        
+        # get the convexhull polygon of the lma flash
+        # TODO: here need a line for hull in lat and lon
+        hull_polygon=get_lma_convext_hull_polygon(f_xy)
+
+        # expand the convex hull by 2 km to account of location offset of LIS
+        hull_polygon_expanded = Polygon(hull_polygon.buffer(2.0).exterior) 
+        
+        #find the centroid of the LMA polygon (before expanding)
+        hull_centroid_x,hull_centroid_y=hull_polygon.centroid.coords.xy
+        
+        #find the corresponding px and py for the centroid
+        d_pixels_2_centroid=d_point_to_points_2d([hull_centroid_x,hull_centroid_y],all_pixels_xy)
+        centroid_pixel_idx=np.where((d_pixels_2_centroid<5)&(d_pixels_2_centroid==np.min(d_pixels_2_centroid)))[0][0]
+        centroid_pxpy=pxpy[centroid_pixel_idx]
+        
+        # detemine if it is day or night when this flash occurred       
+        sunrise_diff_hours, sunset_diff_hours, dn = determine_flash_occur_in_day_or_night(f_t1_tstamp,LMA_center[0],LMA_center[1])
+       
+        M[f_idx]['flash area']=round(hull_polygon.area)
+        M[f_idx]['centroid pxpy']=centroid_pxpy
+        M[f_idx]['dn']= dn
+        
+        
+        # Seach for LIS events:
+        # first lets narrow-down the events data based on temporal and spatial span of lma data        
+        #temporal part
+        G=l.groups.data
+        E=l.events.data
+        E_epoch=  group_pd_tstamps_to_epoch(E.time)
+        idx_keep_temporal=np.where((E_epoch>=f_t1)&(E_epoch<=f_t2))[0]
+        if len(idx_keep_temporal)==0:
+            #print(f"base on time span of LMA flash no {f_idx}, no LIS events found")
+            M[f_idx]['LIS detection']= False
+            continue
+        
+        E1=E.iloc[idx_keep_temporal]
+        
+        #spatial part
+        idx_keep_spatial=np.array([])
+        for k in range(len(E1)):
+            e_lat=E1.lat.iloc[k]
+            e_lon=E1.lon.iloc[k]
+            e_latlon=np.array([e_lat,e_lon])
+            
+            # the distance between an LIS event to all sources in a lma flash
+            d_e_2_lma=haversine_distance(e_latlon, f_latlon)
+            
+            #we only keep events that are within 10 km of any lma sources
+            if np.min(d_e_2_lma)<10:
+                idx_keep_spatial=np.concatenate((idx_keep_spatial,np.array([k])))
+                
+        if len(idx_keep_spatial)==0:
+            #print(f"base on spatial span of LMA flash no {f_idx}, no LIS events found")
+            M[f_idx]['LIS detection']= False
+            continue
+        
+        
+        E2=E1.iloc[idx_keep_spatial]
+        # optional, we could add addtional events that were not in E2 but in parent groups 
+        E2=expand_E2(E2,G,E)
+        
+        # get polygonS of all events in E2
+        lla = ltgLIS.geolocate_events_in_frame(E2, l.one_second)
+        ev_poly = ltgLIS.event_poly(E2, corners=lla, latlon=True, fill=True)
+                
+        #now we get the ploygon of events in latlon, lets covert latlon of polygon to xy
+        ev_poly_latlon,ev_poly_xy = convert_poly_latlon_to_xy(ev_poly)
+        
+        # Now we can check if the expanded hull_polygon intersect with any pixels in E2
+        LIS_LMA_intesect_tf= LIS_LMA_intesect(ev_poly_xy,hull_polygon_expanded)
+        if LIS_LMA_intesect_tf ==True:
+            print('DETECTED')
+            M[f_idx]['LIS detection']= True
+            M[f_idx]['LIS_events']=E2
+        else:
+            print('MISSED')
+            M[f_idx]['LIS detection']= False
+                    
+    return M
 
 NALMA_coordinates=np.array([[34.8092586,  -87.0357225],
                             [34.6433808,  -86.7714025],
@@ -1071,91 +1117,9 @@ for i, fname in enumerate(fname_list[0:1]):
     # Some addtional properties of LMA flashes are determined
     # flash area, centroid of the convext hull as well as its pxpy
     # if a flash is in day or night 
-    for f_idx in batch_flashes_idx:
-        # now the f is in the format of (x,y,z,t,chi,power,lla,flash_ID), in which xyz are in km
-        f=M[f_idx]['LMA']
-                
-        f_t=f[:,3]
-        f_t1=np.min(f_t)
-        f_t2=np.max(f_t)
-        f_lat=f[:,6]
-        f_lon=f[:,7]
-        f_latlon=np.hstack((f_lat.reshape(-1,1),f_lon.reshape(-1,1)))
-        f_xy=haversine_latlon_xy_conversion(f_latlon,LMA_center)
-        
-        f_t1_tstamp=pd.to_datetime(f_t1, unit='s', origin='unix')
-        # f_t2_tstamp=pd.to_datetime(f_t2, unit='s', origin='unix')
-        
-        # here we geolocate all pixels at the flash starting time, for later finding the hull centroid's pxpy
-        all_pixels_coordinates,pxpy=geolocate_all_pixels(t=f_t1_tstamp,one_second_df=l.one_second)
-        all_pixels_latlon=np.hstack((all_pixels_coordinates.lat.reshape(-1,1),all_pixels_coordinates.lon.reshape(-1,1)))
-        all_pixels_xy=haversine_latlon_xy_conversion(all_pixels_latlon,LMA_center)
-        
-        # get the convexhull polygon of the lma flash
-        # TODO: here need a line for hull in lat and lon
-        hull_polygon=get_lma_convext_hull_polygon(f_xy)
+    M=LMA_LIS_match(M, batch_flashes_idx,l,LMA_center)
 
-        # expand the convex hull by 2 km to account of location offset of LIS
-        hull_polygon_expanded = Polygon(hull_polygon.buffer(2.0).exterior) 
         
-        #find the centroid of the LMA polygon (before expanding)
-        hull_centroid_x,hull_centroid_y=hull_polygon.centroid.coords.xy
-        
-        #find the corresponding px and py for the centroid
-        d_pixels_2_centroid=d_point_to_points_2d([hull_centroid_x,hull_centroid_y],all_pixels_xy)
-        centroid_pixel_idx=np.where((d_pixels_2_centroid<5)&(d_pixels_2_centroid==np.min(d_pixels_2_centroid)))[0][0]
-        centroid_pxpy=pxpy[centroid_pixel_idx]
-        
-        # detemine if it is day or night when this flash occurred       
-        sunrise_diff_hours, sunset_diff_hours, dn = determine_flash_occur_in_day_or_night(f_t1_tstamp,ref_lat,ref_lon)
-       
-        
-        M[f_idx]['flash area']=hull_polygon.area
-        M[f_idx]['centroid pxpy']=centroid_pxpy
-        M[f_idx]['dn']= dn
-        
-        import pdb; pdb.set_trace()        
-
-
-        # Seach for LIS events:
-        # first lets narrow-down the events data based on temporal and spatial span of lma data        
-        #temporal part
-        E_tod= group_t_stamps_to_tod(E.time)
-        idx_keep_temporal=np.where((E_tod>=f_t1)&(E_tod<=f_t2))[0]
-        if len(idx_keep_temporal)==0:
-            print(ii,'base on time span of LMA flash, no LIS events found')
-            continue
-        
-        E1=E.iloc[idx_keep_temporal]
-        
-        #spatial part
-        idx_keep_spatial=np.array([])
-        for k in range(len(E1)):
-            e_lat=E1.lat.iloc[k]
-            e_lon=E1.lon.iloc[k]
-            e_latlon=np.array([e_lat,e_lon])
-            
-            
-            # the distance between an LIS event to all sources in a lma flash
-            d_e_2_lma=haversine_distance(e_latlon, f_latlon)
-            
-            #we only keep events that are within 10 km of any lma sources
-            if np.min(d_e_2_lma)<10:
-                idx_keep_spatial=np.concatenate((idx_keep_spatial,np.array([k])))
-        
-        if len(idx_keep_spatial)==0:
-            print(ii,'base on spatial scale of LMA flash, no LIS events found')
-            continue
-
-        E2=E1.iloc[idx_keep_spatial]
-        
-        # optional, we could add addtional events that were not in E2 but in parent groups 
-        E2=expand_E2(E2,G,E)
-
-
-
-
-
     
     '''
         ########################################################################
