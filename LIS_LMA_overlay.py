@@ -661,12 +661,12 @@ def filter_flashes_within_FOV(S_sorted_big_flash, big_flash_info,l,M,in_FOV_lma_
         # make sure all LMA sources are within the fovs of LIS at flash t1 and t2
         in_fov1=check_if_within_polygon(fov1_lonlat,f_lat,f_lon)
         if in_fov1 is False:
-            print(ii,'out of FOV1')
+            # print(ii,'out of FOV1')
             continue 
         
         in_fov2=check_if_within_polygon(fov2_lonlat,f_lat,f_lon)
         if in_fov2 is False:
-            print(ii,'out of FOV2')
+            # print(ii,'out of FOV2')
             continue
                 
         in_FOV_lma_flash_no+=1
@@ -695,51 +695,59 @@ def filter_flashes_within_FOV(S_sorted_big_flash, big_flash_info,l,M,in_FOV_lma_
                 cg_in_this_flash=cg_events[cg_idx]
                 
                 M[in_FOV_lma_flash_no]['RSs']=cg_in_this_flash
-                print(in_FOV_lma_flash_no,'cg_added')
                     
     return M,in_FOV_lma_flash_no
 
 
-def LMA_LIS_compare():
+def LMA_LIS_compare(M,l,batch_flashes_idx,LMA_center):
     
+    for f_idx in batch_flashes_idx:
+        # now the f is in the format of (x,y,z,t,chi,power,lla,flash_ID), in which xyz are in km
+        f=M[f_idx]['LMA']
+                
+        f_t=f[:,3]
+        f_t1=np.min(f_t)
+        f_t2=np.max(f_t)
+        f_lat=f[:,6]
+        f_lon=f[:,7]
+        f_latlon=np.hstack((f_lat.reshape(-1,1),f_lon.reshape(-1,1)))
     
-    # here we geolocate all pixels at the flash starting time, for later finding the hull centroid's pxpy
-    all_pixels_coordinates,pxpy=geolocate_all_pixels(t=f_t1_tstamp,one_second_df=l.one_second)
-    all_pixels_latlon=np.hstack((all_pixels_coordinates.lat.reshape(-1,1),all_pixels_coordinates.lon.reshape(-1,1)))
-    all_pixels_xy=haversine_latlon_xy_conversion(all_pixels_latlon,LMA_center)
-    
-    # determine the convex hull of the LMA flash in 2D
-    assert len(f_t)>2 # MAKRE SURE lma SOURCES ARE MORE THAN 2
-    f_xy=haversine_latlon_xy_conversion(f_latlon,LMA_center)
-    lma_x=f_xy[:,0]
-    lma_y=f_xy[:,1]
-    hull = ConvexHull(f_xy)
-    flash_area=hull.volume
-    
-    ## here we need to get the vertices of the convex hull and based on that create a polygon object
-    hull_x=(lma_x[hull.vertices]).reshape(-1,1)
-    hull_y=(lma_y[hull.vertices]).reshape(-1,1)
-    hull_xy=np.hstack((hull_x,hull_y))
-    rr=LinearRing(hull_xy)
-    hull_polygon = Polygon(rr)
-    # !!!!!hull_polygon_expanded = Polygon(hull_polygon.buffer(2.0).exterior) 
-    
-    #find the centroid of the LMA polygon (before expanding)
-    hull_centroid_x,hull_centroid_y=hull_polygon.centroid.coords.xy
-    
-    #find the corresponding px and py for the centroid
-    d_pixels_2_centroid=d_point_to_points_2d([hull_centroid_x,hull_centroid_y],all_pixels_xy)
-    centroid_pixel_idx=np.where((d_pixels_2_centroid<5)&(d_pixels_2_centroid==np.min(d_pixels_2_centroid)))[0][0]
-    centroid_pxpy=pxpy[centroid_pixel_idx]
-    
-    
-    M[in_FOV_lma_flash_no]={}
-    M[in_FOV_lma_flash_no]['LMA']=f
-    M[in_FOV_lma_flash_no]['LMA_t1']=str(f_t1_tstamp)
-    M[in_FOV_lma_flash_no]['LMA_t2']=str(f_t2_tstamp)
-    M[in_FOV_lma_flash_no]['flash area']=flash_area
-    M[in_FOV_lma_flash_no]['centroid pxpy']=centroid_pxpy
-    M[in_FOV_lma_flash_no]['convexhull polygon']=hull_polygon
+        f_t1_tstamp=pd.to_datetime(f_t1, unit='s', origin='unix')
+        # f_t2_tstamp=pd.to_datetime(f_t2, unit='s', origin='unix')
+            
+        # here we geolocate all pixels at the flash starting time, for later finding the hull centroid's pxpy
+        all_pixels_coordinates,pxpy=geolocate_all_pixels(t=f_t1_tstamp,one_second_df=l.one_second)
+        all_pixels_latlon=np.hstack((all_pixels_coordinates.lat.reshape(-1,1),all_pixels_coordinates.lon.reshape(-1,1)))
+        all_pixels_xy=haversine_latlon_xy_conversion(all_pixels_latlon,LMA_center)
+        
+        # determine the convex hull of the LMA flash in 2D
+        assert len(f_t)>2 # MAKRE SURE lma SOURCES ARE MORE THAN 2
+        f_xy=haversine_latlon_xy_conversion(f_latlon,LMA_center)
+        lma_x=f_xy[:,0]
+        lma_y=f_xy[:,1]
+        hull = ConvexHull(f_xy)
+        flash_area=hull.volume
+        
+        ## here we need to get the vertices of the convex hull and based on that create a polygon object
+        hull_x=(lma_x[hull.vertices]).reshape(-1,1)
+        hull_y=(lma_y[hull.vertices]).reshape(-1,1)
+        hull_xy=np.hstack((hull_x,hull_y))
+        rr=LinearRing(hull_xy)
+        hull_polygon = Polygon(rr)
+        # !!!!!hull_polygon_expanded = Polygon(hull_polygon.buffer(2.0).exterior) 
+        
+        #find the centroid of the LMA polygon (before expanding)
+        hull_centroid_x,hull_centroid_y=hull_polygon.centroid.coords.xy
+        
+        #find the corresponding px and py for the centroid
+        d_pixels_2_centroid=d_point_to_points_2d([hull_centroid_x,hull_centroid_y],all_pixels_xy)
+        centroid_pixel_idx=np.where((d_pixels_2_centroid<5)&(d_pixels_2_centroid==np.min(d_pixels_2_centroid)))[0][0]
+        centroid_pxpy=pxpy[centroid_pixel_idx]
+        
+        
+        M[in_FOV_lma_flash_no]['flash area']=flash_area
+        M[in_FOV_lma_flash_no]['centroid pxpy']=centroid_pxpy
+        M[in_FOV_lma_flash_no]['convexhull polygon']=hull_polygon
     
     
     return []
@@ -1020,106 +1028,109 @@ for i, fname in enumerate(fname_list[0:1]):
     
     
     # Lets further filter out LMA flashes that were out of the LIS fov and put those in FOV in a dictionary
-    # in addtion, if entln cg data are provided, RSs will be assgined and flash type will be given
-    M, in_FOV_lma_flash_no =filter_flashes_within_FOV(S_sorted_big_flash, big_flash_info, l, M, in_FOV_lma_flash_no,EN_data_available, cg_events)
+    # in addtion, if entln cg data are provided, RSs will be assgined to LMA flashes and flash type will be given
+    M, in_FOV_lma_flash_no_updated =filter_flashes_within_FOV(S_sorted_big_flash, big_flash_info, l, M, in_FOV_lma_flash_no,EN_data_available, cg_events)
+    # the flashes idx of this batch
+    batch_flashes_idx=np.arange(in_FOV_lma_flash_no+1,in_FOV_lma_flash_no_updated+1)
     
-    # extract ENLTN data, Note include EN data is optional
-    # note in this analysis, EN data is in numpy array format, and has already been filtered 
-    # with temporal and spatial criteria via the data request, each EN data is saved as a file by date 
-    if EN_data_available == True:
-        cg_events=load_ENTLN_data(ENTLN_folder,first_LIS_event_t,last_LIS_event_t)
-
-        # assign a flash as IC or CG based on if a ENTLN CG is present in the LMA flash:
-        # a CG is considered belonging to the lma flash if the parent LMA flash have 
-        # more than one sources within 30 ms and 3 km of the CG
-        # big flash info format: flash_t0, flash_t1, num_sources, flash_idx, flash_type, number of strokes
-        big_flash_info,cg_events=flash_type_assign(S_sorted_big_flash,cg_events,big_flash_info)
     
-    # Get only LMA flashes that are within of FOV of LIS, and put them into a dictinary
-
-    
-    for ii, info in enumerate(big_flash_info):
-        print(ii)
-        if ii!=19:
-            continue
-    
-        flash_ID=info[3]
-        sources_idx=np.where(S_sorted_big_flash[:,-1]==flash_ID)[0]
-        
-        #check if there is any cg events detected in this flash:
-        if info[-1]>0: # if it is a cg flash
-            # cg_event format (type,x, y, altitude,tod,en_pc,big_flash_row )
-            cg_events_in_this_flash=cg_events[cg_events[:,-1]==ii,:] 
-        else:
-            cg_events_in_this_flash=np.array([])  
-        
-        
+    # Seach LIS events for each of the LMA flash in FOV
+    # If any LIS pixel intersect with the LMA flash convex hull 
+    # then this flash is regarded as detected by LIS, and all LIS events will be saved
+    # Some addtional properties of LMA flashes are determined
+    # flash area, centroid of the convext hull as well as its pxpy
+    # if a flash is in day or night 
+    for f_idx in batch_flashes_idx:
         # now the f is in the format of (x,y,z,t,chi,power,lla,flash_ID), in which xyz are in km
-        f=S_sorted_big_flash[sources_idx]
-        
-        #lets do a body check to remove noises in lma flash
-        sep_thres=1
-        f,tf_idx=body_check(f,sep_thres) # tf idx is the boolean mask of kept sources
-        
+        f=M[f_idx]['LMA']
+                
         f_t=f[:,3]
         f_t1=np.min(f_t)
         f_t2=np.max(f_t)
-
+        f_lat=f[:,6]
+        f_lon=f[:,7]
+        f_latlon=np.hstack((f_lat.reshape(-1,1),f_lon.reshape(-1,1)))
         
-        f_t1_hhmmss=tod_2_tstamp(f_t1)[:18]  # we need precision to ns
-        f_t1_str=e1_date_str+'T'+f_t1_hhmmss
-        f_t1_tstamp=pd.Timestamp(f_t1_str)
-        f_t1_tstamp_till_us=pd.Timestamp(f_t1_str[:-3]) # need only us to avoid warning in pd to datetime converstion
+        f_t1_tstamp=pd.to_datetime(f_t1, unit='s', origin='unix')
+        # f_t2_tstamp=pd.to_datetime(f_t2, unit='s', origin='unix')
         
-        f_t2_hhmmss=tod_2_tstamp(f_t2)[:18]  # we need precision to ns
-        f_t2_str=e1_date_str+'T'+f_t2_hhmmss
-        f_t2_tstamp=pd.Timestamp(f_t2_str)
-        
-        
-        ref_t_stamp=tod_2_tstamp(f_t1)
-        ref_t_stamp_2_ms=ref_t_stamp[:12]
-        full_t_stamp=e1_date_str+'T'+ref_t_stamp_2_ms
-        
-        # here we geolocate all pixels at the flash starting time
+        # here we geolocate all pixels at the flash starting time, for later finding the hull centroid's pxpy
         all_pixels_coordinates,pxpy=geolocate_all_pixels(t=f_t1_tstamp,one_second_df=l.one_second)
         all_pixels_latlon=np.hstack((all_pixels_coordinates.lat.reshape(-1,1),all_pixels_coordinates.lon.reshape(-1,1)))
         all_pixels_xy=haversine_latlon_xy_conversion(all_pixels_latlon,LMA_center)
         
-
-        #get fov of LIS at flash t1 and flash t2
-        fov1 = ltgLIS.get_fov(l.one_second, times=f_t1_tstamp)
-        fov2 = ltgLIS.get_fov(l.one_second, times=f_t2_tstamp)
-        
-        #we need to make sure that LMA flashes are within the fovs
-        fov1_lonlat=np.hstack((fov1[0].lon.reshape(-1,1),fov1[0].lat.reshape(-1,1)))
-        fov2_lonlat=np.hstack((fov2[0].lon.reshape(-1,1),fov2[0].lat.reshape(-1,1)))
-        
-        
-        #check if lma sources are all within the fovs
-        f_lat=f[:,6]
-        f_lon=f[:,7]
-        f_latlon=np.hstack((f_lat.reshape(-1,1),f_lon.reshape(-1,1)))
-        f_lonlat=np.hstack((f_lon.reshape(-1,1),f_lat.reshape(-1,1)))
-        
+        # determine the convex hull of the LMA flash in 2D
+        assert len(f_t)>2 # MAKRE SURE lma SOURCES ARE MORE THAN 2
         f_xy=haversine_latlon_xy_conversion(f_latlon,LMA_center)
         lma_x=f_xy[:,0]
         lma_y=f_xy[:,1]
-        lma_z=f[:,8]/1e3
-        lma_t=(f_t-f_t1)*1e3
+        hull = ConvexHull(f_xy)
+        flash_area=hull.volume
         
-        n_lma_sources=len(f_lat)
+        ## here we need to get the vertices of the convex hull and based on that create a polygon object
+        hull_x=(lma_x[hull.vertices]).reshape(-1,1)
+        hull_y=(lma_y[hull.vertices]).reshape(-1,1)
+        hull_xy=np.hstack((hull_x,hull_y))
+        rr=LinearRing(hull_xy)
+        hull_polygon = Polygon(rr)
         
-        # make sure all LMA sources are within the fovs of LIS at flash t1 and t2
-        in_fov1=check_if_within_polygon(fov1_lonlat,f_lat,f_lon)
-        if in_fov1 is False:
-            print(ii,'out of FOV1')
-            continue 
+        # expand the convex hull by 2 km to account of location offset of LIS
+        hull_polygon_expanded = Polygon(hull_polygon.buffer(2.0).exterior) 
         
-        in_fov2=check_if_within_polygon(fov2_lonlat,f_lat,f_lon)
-        if in_fov2 is False:
-            print(ii,'out of FOV2')
-            continue 
+        #find the centroid of the LMA polygon (before expanding)
+        hull_centroid_x,hull_centroid_y=hull_polygon.centroid.coords.xy
         
+        #find the corresponding px and py for the centroid
+        d_pixels_2_centroid=d_point_to_points_2d([hull_centroid_x,hull_centroid_y],all_pixels_xy)
+        centroid_pixel_idx=np.where((d_pixels_2_centroid<5)&(d_pixels_2_centroid==np.min(d_pixels_2_centroid)))[0][0]
+        centroid_pxpy=pxpy[centroid_pixel_idx]
+        
+        
+        M[f_idx]['flash area']=flash_area
+        M[f_idx]['centroid pxpy']=centroid_pxpy
+
+        
+        # Seach for LIS events:
+        # first lets narrow-down the events data based on temporal and spatial span of lma data        
+        #temporal part
+        E_tod= group_t_stamps_to_tod(E.time)
+        idx_keep_temporal=np.where((E_tod>=f_t1)&(E_tod<=f_t2))[0]
+        if len(idx_keep_temporal)==0:
+            print(ii,'base on time span of LMA flash, no LIS events found')
+            continue
+        
+        E1=E.iloc[idx_keep_temporal]
+        
+        #spatial part
+        idx_keep_spatial=np.array([])
+        for k in range(len(E1)):
+            e_lat=E1.lat.iloc[k]
+            e_lon=E1.lon.iloc[k]
+            e_latlon=np.array([e_lat,e_lon])
+            
+            
+            # the distance between an LIS event to all sources in a lma flash
+            d_e_2_lma=haversine_distance(e_latlon, f_latlon)
+            
+            #we only keep events that are within 10 km of any lma sources
+            if np.min(d_e_2_lma)<10:
+                idx_keep_spatial=np.concatenate((idx_keep_spatial,np.array([k])))
+        
+        if len(idx_keep_spatial)==0:
+            print(ii,'base on spatial scale of LMA flash, no LIS events found')
+            continue
+
+        E2=E1.iloc[idx_keep_spatial]
+        
+        # optional, we could add addtional events that were not in E2 but in parent groups 
+        E2=expand_E2(E2,G,E)
+
+
+
+
+
+    
+    '''
         ########################################################################
         ######  if the code get here it means the lma flash is within the FOV of LIS
         ########################################################################
@@ -1297,4 +1308,4 @@ for i, fname in enumerate(fname_list[0:1]):
         
         fig.savefig(fig_name,dpi=300,bbox_inches='tight')
 
-      
+   '''   
