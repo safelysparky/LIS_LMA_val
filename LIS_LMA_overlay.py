@@ -578,7 +578,7 @@ def flash_sorting(S,t_thres,d_thres,dd_method):
     
     return S, flash_info
 
-def filter_flashes_based_on_number_of_sources(S_sorted,big_flash_info,n_sources_thres):
+def filter_flashes_based_on_number_of_sources(S_sorted,flash_info,n_sources_thres):
     n_sources_col=flash_info[:,2]
     
     # flash info for big flash only
@@ -629,6 +629,121 @@ def load_ENTLN_data(ENTLN_folder,first_LIS_event_t,last_LIS_event_t):
     cg_events=EN_events[EN_type.flatten()==0,:]
 
     return cg_events     
+
+def filter_flashes_within_FOV(S_sorted_big_flash, big_flash_info,l,M,in_FOV_lma_flash_no,EN_data_available,cg_events=[]):
+    # by default, cg_events is empty, means no entln data were given
+    
+    for ii, info in enumerate(big_flash_info):
+    
+        flash_ID=info[3]
+        sources_idx=np.where(S_sorted_big_flash[:,-1]==flash_ID)[0]
+
+        # now the f is in the format of (x,y,z,t,chi,power,lla,flash_ID), in which xyz are in km
+        f=S_sorted_big_flash[sources_idx]
+                
+        f_t=f[:,3]
+        f_t1=np.min(f_t)
+        f_t2=np.max(f_t)
+        f_lat=f[:,6]
+        f_lon=f[:,7]
+
+        f_t1_tstamp=pd.to_datetime(f_t1, unit='s', origin='unix')
+        f_t2_tstamp=pd.to_datetime(f_t2, unit='s', origin='unix')
+
+        #get fov of LIS at flash t1 and flash t2
+        fov1 = ltgLIS.get_fov(l.one_second, times=f_t1_tstamp)
+        fov2 = ltgLIS.get_fov(l.one_second, times=f_t2_tstamp)
+        
+        #we need to make sure that LMA flashes are within the fovs
+        fov1_lonlat=np.hstack((fov1[0].lon.reshape(-1,1),fov1[0].lat.reshape(-1,1)))
+        fov2_lonlat=np.hstack((fov2[0].lon.reshape(-1,1),fov2[0].lat.reshape(-1,1)))
+        
+        # make sure all LMA sources are within the fovs of LIS at flash t1 and t2
+        in_fov1=check_if_within_polygon(fov1_lonlat,f_lat,f_lon)
+        if in_fov1 is False:
+            print(ii,'out of FOV1')
+            continue 
+        
+        in_fov2=check_if_within_polygon(fov2_lonlat,f_lat,f_lon)
+        if in_fov2 is False:
+            print(ii,'out of FOV2')
+            continue
+                
+        in_FOV_lma_flash_no+=1
+        M[in_FOV_lma_flash_no]={}
+        M[in_FOV_lma_flash_no]['LMA']=f
+        M[in_FOV_lma_flash_no]['LMA_t1']=str(f_t1_tstamp)
+        M[in_FOV_lma_flash_no]['LMA_t2']=str(f_t2_tstamp)
+        
+        # then look for cg events associated with the event, if ENTLN data is provided
+        if EN_data_available==True: 
+
+            flash_type=info[4] # flash number was given as a number
+            if flash_type==1:
+                flash_type_str='IC flash'
+            elif flash_type==10:
+                flash_type_str='Negative CG flash'
+            elif flash_type==20:
+                flash_type_str='Positive CG flash'
+            else:
+                flash_type_str='Bipolar flash'
+            
+            M[in_FOV_lma_flash_no]['type']=flash_type_str
+            
+            if flash_type!=1: # if the flash is a cg flash
+                cg_idx=np.where(cg_events[:,-1]==ii)[0]
+                cg_in_this_flash=cg_events[cg_idx]
+                
+                M[in_FOV_lma_flash_no]['RSs']=cg_in_this_flash
+                print(in_FOV_lma_flash_no,'cg_added')
+                    
+    return M,in_FOV_lma_flash_no
+
+
+def LMA_LIS_compare():
+    
+    
+    # here we geolocate all pixels at the flash starting time, for later finding the hull centroid's pxpy
+    all_pixels_coordinates,pxpy=geolocate_all_pixels(t=f_t1_tstamp,one_second_df=l.one_second)
+    all_pixels_latlon=np.hstack((all_pixels_coordinates.lat.reshape(-1,1),all_pixels_coordinates.lon.reshape(-1,1)))
+    all_pixels_xy=haversine_latlon_xy_conversion(all_pixels_latlon,LMA_center)
+    
+    # determine the convex hull of the LMA flash in 2D
+    assert len(f_t)>2 # MAKRE SURE lma SOURCES ARE MORE THAN 2
+    f_xy=haversine_latlon_xy_conversion(f_latlon,LMA_center)
+    lma_x=f_xy[:,0]
+    lma_y=f_xy[:,1]
+    hull = ConvexHull(f_xy)
+    flash_area=hull.volume
+    
+    ## here we need to get the vertices of the convex hull and based on that create a polygon object
+    hull_x=(lma_x[hull.vertices]).reshape(-1,1)
+    hull_y=(lma_y[hull.vertices]).reshape(-1,1)
+    hull_xy=np.hstack((hull_x,hull_y))
+    rr=LinearRing(hull_xy)
+    hull_polygon = Polygon(rr)
+    # !!!!!hull_polygon_expanded = Polygon(hull_polygon.buffer(2.0).exterior) 
+    
+    #find the centroid of the LMA polygon (before expanding)
+    hull_centroid_x,hull_centroid_y=hull_polygon.centroid.coords.xy
+    
+    #find the corresponding px and py for the centroid
+    d_pixels_2_centroid=d_point_to_points_2d([hull_centroid_x,hull_centroid_y],all_pixels_xy)
+    centroid_pixel_idx=np.where((d_pixels_2_centroid<5)&(d_pixels_2_centroid==np.min(d_pixels_2_centroid)))[0][0]
+    centroid_pxpy=pxpy[centroid_pixel_idx]
+    
+    
+    M[in_FOV_lma_flash_no]={}
+    M[in_FOV_lma_flash_no]['LMA']=f
+    M[in_FOV_lma_flash_no]['LMA_t1']=str(f_t1_tstamp)
+    M[in_FOV_lma_flash_no]['LMA_t2']=str(f_t2_tstamp)
+    M[in_FOV_lma_flash_no]['flash area']=flash_area
+    M[in_FOV_lma_flash_no]['centroid pxpy']=centroid_pxpy
+    M[in_FOV_lma_flash_no]['convexhull polygon']=hull_polygon
+    
+    
+    return []
+
 
 def flash_type_assign(S_sorted_big_flash,cg_events,big_flash_info):
     
@@ -887,9 +1002,27 @@ for i, fname in enumerate(fname_list[0:1]):
     S_sorted,flash_info=flash_sorting(S_selected,t_thres,d_thres,dd_method='2d')
 
     # Here we keep only flashes with number of sources more than a threshold
+    # since flashes with just a few sources could be just noises
     n_sources_thres=50
-    S_sorted_big_flash, big_flash_info=filter_flashes_based_on_number_of_sources(S_sorted,big_flash_info,n_sources_thres)
+    S_sorted_big_flash, big_flash_info=filter_flashes_based_on_number_of_sources(S_sorted,flash_info,n_sources_thres)
+    
+    # extract ENLTN data, Note include EN data is optional
+    # note in this analysis, EN data is in numpy array format, and has already been filtered 
+    # with temporal and spatial criteria via the data request, each EN data is saved as a file by date 
+    if EN_data_available == True:
+        cg_events=load_ENTLN_data(ENTLN_folder,first_LIS_event_t,last_LIS_event_t)
 
+        # assign a flash as IC or CG based on if a ENTLN CG is present in the LMA flash:
+        # a CG is considered belonging to the lma flash if the parent LMA flash have 
+        # more than one sources within 30 ms and 3 km of the CG
+        # big flash info format: flash_t0, flash_t1, num_sources, flash_idx, flash_type, number of strokes
+        big_flash_info,cg_events=flash_type_assign(S_sorted_big_flash,cg_events,big_flash_info)
+    
+    
+    # Lets further filter out LMA flashes that were out of the LIS fov and put those in FOV in a dictionary
+    # in addtion, if entln cg data are provided, RSs will be assgined and flash type will be given
+    M, in_FOV_lma_flash_no =filter_flashes_within_FOV(S_sorted_big_flash, big_flash_info, l, M, in_FOV_lma_flash_no,EN_data_available, cg_events)
+    
     # extract ENLTN data, Note include EN data is optional
     # note in this analysis, EN data is in numpy array format, and has already been filtered 
     # with temporal and spatial criteria via the data request, each EN data is saved as a file by date 
