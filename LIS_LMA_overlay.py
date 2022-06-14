@@ -88,11 +88,11 @@ def find_sunrise_sunset_times(lat,lon,date_str):
         
     return sunrise_t_list,sunset_t_list
     
-def determine_day_night(sunrise_t_list,sunset_t_list,f_t1_tstamp_till_us):
+def determine_day_night_given_sun_times(sunrise_t_list,sunset_t_list,f_t1_tstamp_till_second):
 
     # f_t1_tstamp_till_us is the timing of first lma source in the flash, type is pd timestamp
     # need to convert it to datetime for comparison with sunrise and sunset
-    f_t1_datetime=f_t1_tstamp_till_us.to_pydatetime()
+    f_t1_datetime=f_t1_tstamp_till_second.to_pydatetime()
     
     min_sunset_diff =999999
     min_sunrise_diff=999999
@@ -118,6 +118,18 @@ def determine_day_night(sunrise_t_list,sunset_t_list,f_t1_tstamp_till_us):
         
     return sunrise_diff_hours, sunset_diff_hours, dn
     
+
+def determine_flash_occur_in_day_or_night(f_t1_tstamp,ref_lat,ref_lon):
+    
+    date_str=''.join(str(f_t1_tstamp)[:10].split('-'))
+    f_t1_tstamp_till_second=pd.Timestamp(str(f_t1_tstamp)[:19])
+    
+    sunrise_t_list,sunset_t_list=find_sunrise_sunset_times(ref_lat,ref_lon,date_str)
+    
+    sunrise_diff_hours, sunset_diff_hours, dn= determine_day_night_given_sun_times(sunrise_t_list,sunset_t_list,f_t1_tstamp_till_second)
+
+    return sunrise_diff_hours, sunset_diff_hours, dn
+
             
 lonlat_to_webmercator = Transformer.from_crs("EPSG:4326", "EPSG:3857", always_xy=True)
 def latlon_to_Mercator(lon, lat):
@@ -1080,7 +1092,7 @@ for i, fname in enumerate(fname_list[0:1]):
         all_pixels_xy=haversine_latlon_xy_conversion(all_pixels_latlon,LMA_center)
         
         # get the convexhull polygon of the lma flash
-        # TODO: here i need a line for hull in lat and lon
+        # TODO: here need a line for hull in lat and lon
         hull_polygon=get_lma_convext_hull_polygon(f_xy)
 
         # expand the convex hull by 2 km to account of location offset of LIS
@@ -1092,20 +1104,19 @@ for i, fname in enumerate(fname_list[0:1]):
         #find the corresponding px and py for the centroid
         d_pixels_2_centroid=d_point_to_points_2d([hull_centroid_x,hull_centroid_y],all_pixels_xy)
         centroid_pixel_idx=np.where((d_pixels_2_centroid<5)&(d_pixels_2_centroid==np.min(d_pixels_2_centroid)))[0][0]
-        if len(centroid_pixel_idx)==0:
-            raise Exception ('the centroid can not be geolocated while the flash is in FOV, something must be wrong')
         centroid_pxpy=pxpy[centroid_pixel_idx]
         
-        # detemine if it is day or night when this flash occurred
-        sunrise_t_list,sunset_t_list=find_sunrise_sunset_times(ref_lat,ref_lon,e1_date_str)
+        # detemine if it is day or night when this flash occurred       
+        sunrise_diff_hours, sunset_diff_hours, dn = determine_flash_occur_in_day_or_night(f_t1_tstamp,ref_lat,ref_lon)
+       
         
-        sunrise_diff_hours, sunset_diff_hours, dn= determine_day_night(sunrise_t_list,sunset_t_list,f_t1_tstamp_till_us)
-        
-        
-        M[f_idx]['flash area']=flash_area
+        M[f_idx]['flash area']=hull_polygon.area
         M[f_idx]['centroid pxpy']=centroid_pxpy
-
+        M[f_idx]['dn']= dn
         
+        import pdb; pdb.set_trace()        
+
+
         # Seach for LIS events:
         # first lets narrow-down the events data based on temporal and spatial span of lma data        
         #temporal part
