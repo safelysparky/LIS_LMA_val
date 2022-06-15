@@ -394,14 +394,19 @@ def LMA_fname_parse(fname):
             break
     lma_name=name_pieces
     date_str=fname_split[i+1]
+    
+    # note date str could be in form 20190801 or 190801 will have different values in pd.Timestamp()
+    # to avoid this,add 20, here I boldly assume no data before 2000 will be used :-)
+    if len(date_str)==6:
+        date_str='20'+date_str
+    
     hhmmss_str=fname_split[i+2]
     
     #sometimes, mm and ss are missing, in those case we need to pad zeros
-    if len(hhmmss_str)<=6:
-        if len(hhmmss_str)==2:
-            hhmmss_str=hhmmss_str+'0000'
-        if len(hhmmss_str)==4:
-            hhmmss_str=hhmmss_str+'00'
+    if len(hhmmss_str)==2:
+        hhmmss_str=hhmmss_str+'0000'
+    if len(hhmmss_str)==4:
+        hhmmss_str=hhmmss_str+'00'
     
     
     file_start_epoch_ns=pd.Timestamp(date_str).value+(int(hhmmss_str[0:2])*3600+int(hhmmss_str[2:4])*60+int(hhmmss_str[4:]))*int(1e9)
@@ -434,6 +439,7 @@ def find_involved_lma_file(NALMA_folder,LMA_NAME,first_LIS_event_t,last_LIS_even
             continue
         else:
             involved_fnames.append(NALMA_folder+fname)
+            
     return involved_fnames
 
 def d_point_to_points_2d(event, events):
@@ -446,7 +452,12 @@ def extract_lma_data_in_LIS_passover_time_range(LMA_L1_folder,LMA_NAME,ref_lat,r
 
     # find involved lma file names 
     involved_lma_files=find_involved_lma_file(LMA_L1_folder,LMA_NAME,first_LIS_event_t,last_LIS_event_t)
-
+    
+    if involved_lma_files==[]:
+        print(f"No LMA files found for time range {first_LIS_event_t} - {last_LIS_event_t}")
+        S_selected=[]
+        return S_selected  # return here skip the rest of function
+    
     #load the lma file and extract those only within the time ranges of passover LIS events:
     for j, lma_fname in enumerate(involved_lma_files):
         S_one_file=read_lma_format_data_as_nparray_with_epoch_t(lma_fname,ref_lat,ref_lon,ref_alt)
@@ -456,9 +467,14 @@ def extract_lma_data_in_LIS_passover_time_range(LMA_L1_folder,LMA_NAME,ref_lat,r
         else:
             # stack them if multiple files needs to be loaded
             S=np.vstack((S,S_one_file))
-    
+
     #shink it to the time range we needed, -/+1s of the LIS passover events time ranges:
     idx_keep=np.where((S[:,3]>first_LIS_event_epoch-1)&(S[:,3]<last_LIS_event_epoch+1))[0]
+    
+    if len(idx_keep)==0:
+       S_selected=[]
+       return S_selected
+    
     S_selected=S[idx_keep,:]
     return S_selected
 
@@ -986,6 +1002,9 @@ def LMA_LIS_match(M, batch_flashes_idx,l,LMA_center):
         # optional, we could add addtional events that were not in E2 but in parent groups 
         E2=expand_E2(E2,G,E)
         
+        # SORT E2 by time
+        E2.sort_values(by=['time'])
+        
         # get polygonS of all events in E2
         ev_poly_latlon,ev_poly_xy=get_polygons_of_events_in_E2(E2, l, LMA_center)
         
@@ -1177,110 +1196,121 @@ def plot_LMA_LIS_MATCH(m,ii,LMA_center,fig_save=False,fig_folder=None):
 
 
 
-def  main():
-    
-    LMA_center=np.array([34.8,-86.85])
-    ref_lat=LMA_center[0]
-    ref_lon=LMA_center[1]
-    ref_alt=0
-    
-    
-    txt_file = open("C:/Users/yanan/Desktop/git_local/LIS_LMA_val/LIS_NALMA_matched_filenames.txt", "r")
-    
-    fname_list=txt_file.read().splitlines() 
-    
-    LMA_NAME='NALMA'
-    LMA_L1_folder='E:/NALMA_LIS_project/'
-    ENTLN_folder='E:/ENTLN_LIS_project/'
-    fig_folder='C:/Users/yanan/Desktop/LIS_fig/'
-    
-    EN_data_available=True
-    
-    M={} # initialize the dictionary for LMA-LIS match
-    in_FOV_lma_flash_no=0 # the initial value that will be used for LMA-LIS match dict key
-    
-    
-    for i, fname in enumerate(fname_list[0:1]):
-        # print(str(i+1)+'/'+str(len(fname_list)),fname)
-    
-        ########################################################################
-        # load the ~90 min LIS data
-        ########################################################################
-        l = LIS(fname)
-        
-        # find LIS events within X-km of LMA network center, the time ranges of those LIS events
-        # will be used to extract LMA and ENTLN data later
-        distance_thres_km=100
-        first_LIS_event_t,last_LIS_event_t=find_time_ranges_of_LIS_events_over_LMA (l,LMA_center,distance_thres_km)
-        # if no LIS events found, will return a empty list, then this file will be skipped
-        if first_LIS_event_t==[]:
-            continue 
-        
-        ##################################################################################
-        # lets extract lma and entln data based on the passover LIS data time range:
-        ##################################################################################
-        # exrtact lma data in the time range:
-        S_selected=extract_lma_data_in_LIS_passover_time_range(LMA_L1_folder,LMA_NAME,ref_lat,ref_lon,ref_alt,first_LIS_event_t,last_LIS_event_t)
-    
-        #sort lma sources into flashes
-        # flash sorting parameters:
-        t_thres=0.2 # unit second
-        d_thres=5 # unit km
-        # S_sorted format: x(km),y(km),z(km),t(epoch in sec),rchi2,power,lla,flash_id
-        # flash_info format: flash_t1,flash_t2,no_lma_sources,flash_id
-        S_sorted,flash_info=flash_sorting(S_selected,t_thres,d_thres,dd_method='2d')
-    
-        # Here we keep only flashes with number of sources more than a threshold
-        # since flashes with just a few sources could be just noises
-        n_sources_thres=50
-        S_sorted_big_flash, big_flash_info=filter_flashes_based_on_number_of_sources(S_sorted,flash_info,n_sources_thres)
-        
-        # extract ENLTN data, Note include EN data is optional
-        # note in this analysis, EN data is in numpy array format, and has already been filtered 
-        # with temporal and spatial criteria via the data request, each EN data is saved as a file by date 
-        if EN_data_available == True:
-            cg_events=load_ENTLN_data(ENTLN_folder,ref_lat,ref_lon,ref_alt,first_LIS_event_t,last_LIS_event_t)
-    
-            # assign a flash as IC or CG based on if a ENTLN CG is present in the LMA flash:
-            # a CG is considered belonging to the lma flash if the parent LMA flash have 
-            # more than one sources within 30 ms and 3 km of the CG
-            # big flash info format: flash_t0, flash_t1, num_sources, flash_idx, flash_type, number of strokes
-            big_flash_info,cg_events=flash_type_assign(S_sorted_big_flash,cg_events,big_flash_info)
-        
-        
-        #  further filter out LMA flashes that were out of the LIS fov and put those in FOV in a dictionary
-        # in addtion, if entln cg data are provided, RSs will be assgined to LMA flashes and flash type will be given
-        M, in_FOV_lma_flash_no_updated =filter_flashes_within_FOV(S_sorted_big_flash, big_flash_info, l, M, in_FOV_lma_flash_no,EN_data_available, cg_events)
-        
-        # the flashes idx (key in M dictionary) of this batch LIS file
-        batch_flashes_idx=np.arange(in_FOV_lma_flash_no+1,in_FOV_lma_flash_no_updated+1)
-        
-        # Seach LIS events for each of the LMA flash in FOV
-        # If any LIS pixel intersect with the LMA flash convex hull 
-        # then this flash is regarded as detected by LIS, and all LIS events will be saved
-        # Some addtional properties of LMA flashes are determined
-        # flash area, centroid of the convext hull as well as its pxpy
-        # if a flash is in day or night 
-        M=LMA_LIS_match(M, batch_flashes_idx,l,LMA_center)
-        
-        ii=3
-        m=M[ii]    
-        plot_LMA_LIS_MATCH(m,ii,LMA_center)
+# def  main():
+
+LMA_center=np.array([34.8,-86.85])
+ref_lat=LMA_center[0]
+ref_lon=LMA_center[1]
+ref_alt=0
 
 
-from line_profiler import LineProfiler
+txt_file = open("C:/Users/yanan/Desktop/git_local/LIS_LMA_val/LIS_NALMA_matched_filenames.txt", "r")
 
-lprofiler = LineProfiler()
-lprofiler.add_function(LMA_LIS_match)
-lprofiler.add_function(get_polygons_of_events_in_E2)
-lp_wrapper = lprofiler(main)
+fname_list=txt_file.read().splitlines() 
 
-lp_wrapper()
-lprofiler.print_stats()
+LMA_NAME='NALMA'
+LMA_L1_folder='E:/NALMA_LIS_project/'
+ENTLN_folder='E:/ENTLN_LIS_project/'
+fig_folder='C:/Users/yanan/Desktop/LIS_fig/'
+
+EN_data_available=True
+
+M={} # initialize the dictionary for LMA-LIS match
+in_FOV_lma_flash_no=0 # the initial value that will be used for LMA-LIS match dict key
+
+
+for i, fname in enumerate(fname_list):
+    
+    # if i+1!=39:
+    #     continue
+    
+    print(str(i+1)+'/'+str(len(fname_list)),fname)
+
+    ########################################################################
+    # load the ~90 min LIS data
+    ########################################################################
+    l = LIS(fname)
+    
+    # find LIS events within X-km of LMA network center, the time ranges of those LIS events
+    # will be used to extract LMA and ENTLN data later
+    distance_thres_km=100
+    first_LIS_event_t,last_LIS_event_t=find_time_ranges_of_LIS_events_over_LMA (l,LMA_center,distance_thres_km)
+    # if no LIS events found, will return a empty list, then this file will be skipped
+    if first_LIS_event_t==[]:
+        continue 
+    
+    ##################################################################################
+    # lets extract lma and entln data based on the passover LIS data time range:
+    ##################################################################################
+    # exrtact lma data in the time range:
+    S_selected=extract_lma_data_in_LIS_passover_time_range(LMA_L1_folder,LMA_NAME,ref_lat,ref_lon,ref_alt,first_LIS_event_t,last_LIS_event_t)
+    if len(S_selected)==0:
+        continue
+    
+    #sort lma sources into flashes
+    # flash sorting parameters:
+    t_thres=0.2 # unit second
+    d_thres=5 # unit km
+    # S_sorted format: x(km),y(km),z(km),t(epoch in sec),rchi2,power,lla,flash_id
+    # flash_info format: flash_t1,flash_t2,no_lma_sources,flash_id
+    S_sorted,flash_info=flash_sorting(S_selected,t_thres,d_thres,dd_method='2d')
+
+    # Here we keep only flashes with number of sources more than a threshold
+    # since flashes with just a few sources could be just noises
+    n_sources_thres=50
+    S_sorted_big_flash, big_flash_info=filter_flashes_based_on_number_of_sources(S_sorted,flash_info,n_sources_thres)
+    
+    # extract ENLTN data, Note include EN data is optional
+    # note in this analysis, EN data is in numpy array format, and has already been filtered 
+    # with temporal and spatial criteria via the data request, each EN data is saved as a file by date 
+    if EN_data_available == True:
+        cg_events=load_ENTLN_data(ENTLN_folder,ref_lat,ref_lon,ref_alt,first_LIS_event_t,last_LIS_event_t)
+
+        # assign a flash as IC or CG based on if a ENTLN CG is present in the LMA flash:
+        # a CG is considered belonging to the lma flash if the parent LMA flash have 
+        # more than one sources within 30 ms and 3 km of the CG
+        # big flash info format: flash_t0, flash_t1, num_sources, flash_idx, flash_type, number of strokes
+        big_flash_info,cg_events=flash_type_assign(S_sorted_big_flash,cg_events,big_flash_info)
+    
+    
+    #  further filter out LMA flashes that were out of the LIS fov and put those in FOV in a dictionary
+    # in addtion, if entln cg data are provided, RSs will be assgined to LMA flashes and flash type will be given
+    M, in_FOV_lma_flash_no_updated =filter_flashes_within_FOV(S_sorted_big_flash, big_flash_info, l, M, in_FOV_lma_flash_no,EN_data_available, cg_events)
+    
+    # the flashes idx (key in M dictionary) of this batch LIS file
+    batch_flashes_idx=np.arange(in_FOV_lma_flash_no+1,in_FOV_lma_flash_no_updated+1)
+    
+    # Seach LIS events for each of the LMA flash in FOV
+    # If any LIS pixel intersect with the LMA flash convex hull 
+    # then this flash is regarded as detected by LIS, and all LIS events will be saved
+    # Some addtional properties of LMA flashes are determined
+    # flash area, centroid of the convext hull as well as its pxpy
+    # if a flash is in day or night 
+    M=LMA_LIS_match(M, batch_flashes_idx,l,LMA_center)
+    
+    # update this number so that M can append
+    in_FOV_lma_flash_no=in_FOV_lma_flash_no_updated
+    
+        
+        # ii=3
+        # m=M[ii]    
+        # if m['LIS detection']==True:
+        #     plot_LMA_LIS_MATCH(m,ii,LMA_center)
+
 
 # if __name__ == "__main__":
 #     main()
-    
-    
+
+# from line_profiler import LineProfiler
+
+# lprofiler = LineProfiler()
+# lprofiler.add_function(LMA_LIS_match)
+# lprofiler.add_function(get_polygons_of_events_in_E2)
+# lp_wrapper = lprofiler(main)
+
+# lp_wrapper()
+# lprofiler.print_stats()
+
+
 
  
