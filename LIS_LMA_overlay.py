@@ -143,7 +143,7 @@ def load_obj(name):
 
 
 from matplotlib.gridspec import GridSpec
-def LIS_plot_layout():
+def LIS_LMA_plot_layout():
     fig = plt.figure(figsize=(12,21))
     
     gs = GridSpec(42, 24)
@@ -709,7 +709,7 @@ def filter_flashes_within_FOV(S_sorted_big_flash, big_flash_info,l,M,in_FOV_lma_
                     
     return M,in_FOV_lma_flash_no
 
-def get_lma_convext_hull_polygon(f_xy):
+def get_lma_convex_hull_polygon(f_xy):
     
     # determine the convex hull of the LMA flash in 2D
     assert len(f_xy)>2 # MAKRE SURE lma SOURCES ARE MORE THAN 2
@@ -855,15 +855,15 @@ def get_radiance_area_vs_time(E2):
     
     for n in range(len(E2)):
         e_tstamp=E2.time.iloc[n]
-        e_tod=LIS_tstamp_to_tod(e_tstamp)
+        e_epoch=e_tstamp.value/(int(1e9))
         
         e_rad=E2.radiance.iloc[n]
         e_area=E2.footprint.iloc[n]
         
-        frame_idx=np.where(t_frame==e_tod)[0]
+        frame_idx=np.where(t_frame==e_epoch)[0]
         
         if len(frame_idx)==0:
-            t_frame=np.concatenate((t_frame,np.array([e_tod])))
+            t_frame=np.concatenate((t_frame,np.array([e_epoch])))
             rad_frame=np.concatenate((rad_frame,np.array([e_rad])))
             area_frame=np.concatenate((area_frame,np.array([e_area])))
         else:
@@ -929,7 +929,7 @@ def LMA_LIS_match(M, batch_flashes_idx,l,LMA_center):
         
         # get the convexhull polygon of the lma flash
         # TODO: here need a line for hull in lat and lon
-        hull_polygon=get_lma_convext_hull_polygon(f_xy)
+        hull_polygon=get_lma_convex_hull_polygon(f_xy)
 
         # expand the convex hull by 2 km to account of location offset of LIS
         hull_polygon_expanded = Polygon(hull_polygon.buffer(2.0).exterior) 
@@ -1007,6 +1007,40 @@ def LMA_LIS_match(M, batch_flashes_idx,l,LMA_center):
                     
     return M
 
+def get_limits_for_same_scale_planview (ev_poly_xy,hull_polygon_expanded,lma_x,lma_y):
+    ep_minx, ep_miny, ep_maxx, ep_maxy=hull_polygon_expanded.bounds
+    ev_poly_xy_ary=np.concatenate(ev_poly_xy)
+    all_x=np.concatenate((ev_poly_xy_ary[:,0],lma_x,np.array([ep_minx, ep_maxx])))
+    all_y=np.concatenate((ev_poly_xy_ary[:,1],lma_y,np.array([ep_miny, ep_maxy])))
+    
+    min_x=np.min(all_x)
+    max_x=np.max(all_x)
+    min_y=np.min(all_y)
+    max_y=np.max(all_y)
+    
+    #length compensation
+    length_x=max_x-min_x
+    length_y=max_y-min_y
+    
+    if length_x>length_y:
+        extra=(length_x-length_y)/2
+        min_y=min_y-extra
+        max_y=max_y+extra
+    
+    if length_x<length_y:
+        extra=(length_y-length_x)/2
+        min_x=min_x-extra
+        max_x=max_x+extra
+    
+    
+    pad_x=(max_x-min_x)*0.1
+    pad_y=(max_y-min_y)*0.1
+    
+    ax2_xlim=[min_x-pad_x,max_x+pad_x]
+    ax2_ylim=[min_y-pad_y,max_y+pad_y]
+    
+    return ax2_xlim, ax2_ylim
+
 NALMA_coordinates=np.array([[34.8092586,  -87.0357225],
                             [34.6433808,  -86.7714025],
                             [34.7253536,  -86.6449781],
@@ -1040,13 +1074,6 @@ EN_data_available=True
 M={} # initialize the dictionary for LMA-LIS match
 in_FOV_lma_flash_no=0 # the initial value that will be used for LMA-LIS match dict key
 
-# We're going to be doing some plotting, so set up some variables
-map_proj = ccrs.Mercator()
-ll_proj_geo = ccrs.Geodetic()
-ll_proj = ccrs.PlateCarree()
-
-#get the colormap
-cmap=cm.get_cmap('binary',100)
 
 for i, fname in enumerate(fname_list[0:1]):
     # print(str(i+1)+'/'+str(len(fname_list)),fname)
@@ -1110,7 +1137,6 @@ for i, fname in enumerate(fname_list[0:1]):
     # the flashes idx (key in M dictionary) of this batch LIS file
     batch_flashes_idx=np.arange(in_FOV_lma_flash_no+1,in_FOV_lma_flash_no_updated+1)
     
-    
     # Seach LIS events for each of the LMA flash in FOV
     # If any LIS pixel intersect with the LMA flash convex hull 
     # then this flash is regarded as detected by LIS, and all LIS events will be saved
@@ -1118,185 +1144,128 @@ for i, fname in enumerate(fname_list[0:1]):
     # flash area, centroid of the convext hull as well as its pxpy
     # if a flash is in day or night 
     M=LMA_LIS_match(M, batch_flashes_idx,l,LMA_center)
-
-        
     
-    '''
-        ########################################################################
-        ######  if the code get here it means the lma flash is within the FOV of LIS
-        ########################################################################
-        
-        # detemine if it is day or night when this flash occurred
-        sunrise_t_list,sunset_t_list=find_sunrise_sunset_times(ref_lat,ref_lon,e1_date_str)
-        
-        sunrise_diff_hours, sunset_diff_hours, dn= determine_day_night(sunrise_t_list,sunset_t_list,f_t1_tstamp_till_us)
+    
+    
+    
+    
+    # We're going to be doing some plotting, so set up some variables
+    map_proj = ccrs.Mercator()
+    ll_proj_geo = ccrs.Geodetic()
+    ll_proj = ccrs.PlateCarree()
 
-        # determine the convex hull of the LMA flash in 2D
-        assert len(f_lonlat)>2 # MAKRE SURE lma SOURCES ARE MORE THAN 2
-        hull = ConvexHull(f_xy)
-        area=hull.volume
-        
-        ## here we need to get the vertices of the convex hull and based on that create a polygon object
-        hull_x=(lma_x[hull.vertices]).reshape(-1,1)
-        hull_y=(lma_y[hull.vertices]).reshape(-1,1)
-        hull_xy=np.hstack((hull_x,hull_y))
-        rr=LinearRing(hull_xy)
-        hull_polygon = Polygon(rr)
-        hull_polygon_expanded = Polygon(hull_polygon.buffer(2.0).exterior) 
-        
-        #find the centroid of the LMA polygon (before expanding)
-        hull_centroid_x,hull_centroid_y=hull_polygon.centroid.coords.xy
-        
-        #find the corresponding px and py for the centroid
-        d_pixels_2_centroid=d_point_to_points_2d([hull_centroid_x,hull_centroid_y],all_pixels_xy)
-        centroid_pixel_idx=np.where((d_pixels_2_centroid<5)&(d_pixels_2_centroid==np.min(d_pixels_2_centroid)))[0][0]
-        centroid_pxpy=pxpy[centroid_pixel_idx]
-        
-        
-        # first lets narrow-down the events data based on temporal and spatial span of lma data        
-        #temporal part
-        E_tod= group_t_stamps_to_tod(E.time)
-        idx_keep_temporal=np.where((E_tod>=f_t1)&(E_tod<=f_t2))[0]
-        if len(idx_keep_temporal)==0:
-            print(ii,'base on time span of LMA flash, no LIS events found')
-            continue
-        
-        E1=E.iloc[idx_keep_temporal]
-        
-        #spatial part
-        idx_keep_spatial=np.array([])
-        for k in range(len(E1)):
-            e_lat=E1.lat.iloc[k]
-            e_lon=E1.lon.iloc[k]
-            e_latlon=np.array([e_lat,e_lon])
+    #get the colormap
+    cmap=cm.get_cmap('binary',100)
+    
+    
+    # LIS-LMA match plot
+    fig,axs=LIS_LMA_plot_layout()
+    ii=3
+    m=M[ii]
+    f=m['LMA']
+    f_t=f[:,3]
+    f_t1=np.min(f_t)
+    f_t2=np.max(f_t)
+    
+    f_lat=f[:,6]
+    f_lon=f[:,7]
+    f_latlon=np.hstack((f_lat.reshape(-1,1),f_lon.reshape(-1,1)))
+    f_xy=haversine_latlon_xy_conversion(f_latlon,LMA_center)
+    lma_x=f_xy[:,0]
+    lma_y=f_xy[:,1]
+    
+    f_t1_stamp=str(pd.to_datetime(f_t1, unit='s', origin='unix'))
+    
+    lma_t=(f_t-f_t1)*1e3 # convert it to ms
+    ax0_xlim=[np.min(lma_t)-10,np.max(lma_t)+10]
+    
+    lma_z=f[:,8]/1e3
+    
+    # get the xy bounds of the expanded polygon, needs this for deteming plot limit
+    # get the convexhull polygon of the lma flash
+    # TODO: here need a line for hull in lat and lon
+    hull_polygon=get_lma_convex_hull_polygon(f_xy)
+    
+    #find the centroid of the LMA polygon (before expanding)
+    hull_centroid_x,hull_centroid_y=hull_polygon.centroid.coords.xy
+    
+    # expand the convex hull by 2 km to account of location offset of LIS
+    hull_polygon_expanded = Polygon(hull_polygon.buffer(2.0).exterior) 
+    
+    x1, y1 = hull_polygon.exterior.xy
+    x2, y2 = hull_polygon_expanded.exterior.xy
+    
+    ######################################
+    # lma source height vs time plot
+    ######################################
+    axs[0].scatter(lma_t,lma_z,c=f_t, marker='.', zorder=13,cmap='jet')
+    
+    #plot cg events if any:
+    if 'RSs' in m.keys():
+        ax0_ylim=axs[0].get_ylim()
+        cg_events_in_this_flash=m['RSs']
+        for cg in cg_events_in_this_flash:
+            cg_t=(cg[4]-f_t1)*1e3
+            axs[0].plot([cg_t,cg_t],[ax0_ylim[0],ax0_ylim[1]],'-k')
+        axs[0].set_ylim(ax0_ylim[0],ax0_ylim[1])
+    axs[0].set_xlim(ax0_xlim)
+    
+    
+    ######################################
+    # LIS total radiance vs time plot
+    #####################################
+    # get total radiance vs time
+    E2=m['LIS_events']
+    t_frame,rad_frame,area_frame= get_radiance_area_vs_time(E2)
+    t_frame=(t_frame-f_t1)*1e3
+    
+    lla = ltgLIS.geolocate_events_in_frame(E2, l.one_second)
+    ev_poly = ltgLIS.event_poly(E2, corners=lla, latlon=True, fill=True)
             
-            
-            # the distance between an LIS event to all sources in a lma flash
-            d_e_2_lma=haversine_distance(e_latlon, f_latlon)
-            
-            #we only keep events that are within 10 km of any lma sources
-            if np.min(d_e_2_lma)<10:
-                idx_keep_spatial=np.concatenate((idx_keep_spatial,np.array([k])))
-        
-        if len(idx_keep_spatial)==0:
-            print(ii,'base on spatial scale of LMA flash, no LIS events found')
-            continue
+    #now we get the ploygon of events in latlon, lets covert latlon of polygon to xy
+    ev_poly_latlon,ev_poly_xy = convert_poly_latlon_to_xy(ev_poly)
 
-        E2=E1.iloc[idx_keep_spatial]
+    # radiance/area vs time plot
+    axs[1].plot(t_frame,rad_frame,'r.')
+    axs[1].bar(t_frame,rad_frame,2,facecolor='r')
+    axs[1].set_xlim(ax0_xlim)
+    axs[1].set_xlabel('Milliseconds after '+ f_t1_stamp)
+    
+    ###############################################
+    # plan view  lma overlaid on LIS events polygon
+    ###############################################
+    
+    E2_radiance=E2.radiance.values
+    for jj, poly in enumerate(ev_poly_xy):
+        # p = Polygon(poly, facecolor = 'k')
+        # ax.add_patch(p)
+        rad=E2_radiance[jj]
         
-        # optional, we could add addtional events that were not in E2 but in parent groups 
-        E2=expand_E2(E2,G,E)
+        if rad<3500:
+            rad=3500
+        if rad>40000:
+            rad=40000
         
-        # get total radiance vs time
-        t_frame,rad_frame,area_frame= get_radiance_area_vs_time(E2)
-        t_frame=(t_frame-f_t1)*1e3
+        color_scale=(rad-3500)/(40000-3500) # this value range from 0 to 1
+        axs[2].fill(poly[:,0],poly[:,1],facecolor=cmap(color_scale), edgecolor='black', linewidth=2)
+        print(jj,poly[:,0])
         
-        lla = ltgLIS.geolocate_events_in_frame(E2, l.one_second)
-        ev_poly = ltgLIS.event_poly(E2, corners=lla, latlon=True, fill=True)
-                
-        #now we get the ploygon of events in latlon, lets covert latlon of polygon to xy
-        ev_poly_latlon,ev_poly_xy = convert_poly_latlon_to_xy(ev_poly)
-
-        fig,axs=LIS_plot_layout()
-        
-        ax0_xlim=[np.min(lma_t)-10,np.max(lma_t)+10]
-        # lma source h vs time plot
-        axs[0].scatter(lma_t,lma_z,c=f_t, marker='.', zorder=13,cmap='jet')
-        #plot cg events if any:
-        if len(cg_events_in_this_flash)>0:
-            ax0_ylim=axs[0].get_ylim()
-            for cg in cg_events_in_this_flash:
-                cg_t=(cg[4]-f_t1)*1e3
-                axs[0].plot([cg_t,cg_t],[ax0_ylim[0],ax0_ylim[1]],'-k')
-            axs[0].set_ylim(ax0_ylim[0],ax0_ylim[1])
-        axs[0].set_xlim(ax0_xlim)
-        
-        # radiance/area vs time plot
-        axs[1].plot(t_frame,rad_frame,'r.')
-        axs[1].bar(t_frame,rad_frame,2,facecolor='r')
-        axs[1].set_xlim(ax0_xlim)
-        axs[1].set_xlabel('Milliseconds after '+ full_t_stamp)
-        
-        E2_radiance=E2.radiance.values
-        for m, poly in enumerate(ev_poly_xy):
-            # p = Polygon(poly, facecolor = 'k')
-            # ax.add_patch(p)
-            rad=E2_radiance[m]
-            
-            if rad<3500:
-                rad=3500
-            if rad>40000:
-                rad=40000
-            
-            color_scale=(rad-3500)/(40000-3500) # this value range from 0 to 1
-            axs[2].fill(poly[:,0],poly[:,1],facecolor=cmap(color_scale), edgecolor='black', linewidth=1)
-        axs[2].scatter(lma_x,lma_y,c=f_t, marker='.', zorder=13,cmap='jet')
-                
-        # get the xy bounds of the expanded polygon, needs this for deteming plot limit
-        ep_minx, ep_miny, ep_maxx, ep_maxy=hull_polygon_expanded.bounds
-        
-        
-        # plot LMA flash centroid
-        axs[2].scatter(hull_centroid_x,hull_centroid_y, c='k', s=150, marker='X', zorder=14)
-                
-        # Now we can check if the expanded hull_polygon intersect with any pixels in E2
-        LIS_LMA_intesect_tf= LIS_LMA_intesect(ev_poly_xy,hull_polygon_expanded)
-        if LIS_LMA_intesect_tf ==True:
-            print('DETECTED')
-        else:
-            print('MISSED')
-
-                
-        x1, y1 = hull_polygon.exterior.xy
-        x2, y2 = hull_polygon_expanded.exterior.xy
-        
-        axs[2].plot(x1,y1)
-        axs[2].plot(x2,y2)
-        
-        # here we need to make the plot square, to do this, we need to make sure
-        ev_poly_xy_ary=np.concatenate(ev_poly_xy)
-        all_x=np.concatenate((ev_poly_xy_ary[:,0],lma_x,np.array([ep_minx, ep_maxx])))
-        all_y=np.concatenate((ev_poly_xy_ary[:,1],lma_y,np.array([ep_miny, ep_maxy])))
-        
-        min_x=np.min(all_x)
-        max_x=np.max(all_x)
-        min_y=np.min(all_y)
-        max_y=np.max(all_y)
-        
-        #length compensation
-        length_x=max_x-min_x
-        length_y=max_y-min_y
-        
-        if length_x>length_y:
-            extra=(length_x-length_y)/2
-            min_y=min_y-extra
-            max_y=max_y+extra
-        
-        if length_x<length_y:
-            extra=(length_y-length_x)/2
-            min_x=min_x-extra
-            max_x=max_x+extra
-        
-        
-        pad_x=(max_x-min_x)*0.1
-        pad_y=(max_y-min_y)*0.1
-        
-        ax2_xlim=[min_x-pad_x,max_x+pad_x]
-        ax2_ylim=[min_y-pad_y,max_y+pad_y]
-        
-        
-        axs[2].set_xlim(ax2_xlim)
-        axs[2].set_ylim(ax2_ylim)
-                    
-        axs[2].set_aspect('equal', adjustable='box')
-        plt.show()
-        
-         
-        # get rid of puncuation that can not be used as 
-        full_t_stamp=full_t_stamp.replace(':','_')
-        full_t_stamp=full_t_stamp.replace('.','_')
-        fig_name=fig_folder+str(ii)+'_'+full_t_stamp+'.png'
-        
-        fig.savefig(fig_name,dpi=300,bbox_inches='tight')
-
-   '''   
+    # lma plan view plot
+    axs[2].scatter(lma_x,lma_y,c=f_t, marker='.', zorder=13,cmap='jet')
+    # plot LMA flash centroid
+    axs[2].scatter(hull_centroid_x,hull_centroid_y, c='k', s=150, marker='X', zorder=14)
+    # hull polygons, original and expanded
+    axs[2].plot(x1,y1)
+    axs[2].plot(x2,y2)
+    
+    ax2_xlim, ax2_ylim = get_limits_for_same_scale_planview (ev_poly_xy,hull_polygon_expanded,lma_x,lma_y)
+    
+    axs[2].set_xlim(ax2_xlim)
+    axs[2].set_ylim(ax2_ylim)
+    
+    # get rid of puncuation that can not be used as 
+    full_t_stamp=f_t1_stamp.replace(':','_')
+    full_t_stamp=full_t_stamp.replace('.','_')
+    fig_name=fig_folder+str(ii)+'_'+full_t_stamp+'.png'
+    fig.savefig(fig_name,dpi=300,bbox_inches='tight')
+ 
