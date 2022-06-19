@@ -49,7 +49,6 @@ def find_time_ranges_of_LIS_events_over_LMA (l,LMA_center,distance_thres_km):
         first_LIS_event_t=E_close_t.iloc[0]
         last_LIS_event_t=E_close_t.iloc[-1]
         print(first_LIS_event_t,last_LIS_event_t)
-        print('_____________________________________________________________')
     else:
         first_LIS_event_t=[]
         last_LIS_event_t=[]
@@ -93,27 +92,22 @@ def determine_day_night_given_sun_times(sunrise_t_list,sunset_t_list,f_t1_tstamp
     # need to convert it to datetime for comparison with sunrise and sunset
     f_t1_datetime=f_t1_tstamp_till_second.to_pydatetime()
     
-    min_sunset_diff =999999
-    min_sunrise_diff=999999
+    sun_rise_set_list=sunrise_t_list+sunset_t_list
+    sun_rise_set_list.sort()
     
-    for sunrise_t, sunset_t in zip(sunrise_t_list,sunset_t_list):
-            
-        sunrise_diff=(f_t1_datetime-sunrise_t).total_seconds()
-        sunset_diff=(f_t1_datetime-sunset_t).total_seconds()
+    for i, t in enumerate(sun_rise_set_list):
+        if f_t1_datetime>=t and f_t1_datetime<=sun_rise_set_list[i+1]:
+            break
         
-        if abs(sunrise_diff)<abs(min_sunrise_diff):
-            min_sunrise_diff=sunrise_diff
-            
-        if abs(sunset_diff)<abs(min_sunset_diff):
-            min_sunset_diff=sunset_diff
-    
-    sunrise_diff_hours=np.around(min_sunrise_diff/3600,1)
-    sunset_diff_hours=np.around(min_sunset_diff/3600,1)
-    
-    if min_sunrise_diff>=0 and min_sunset_diff<=0:
+    if (sun_rise_set_list[i] in sunrise_t_list)&(sun_rise_set_list[i+1] in sunset_t_list):
         dn="day"
-    if  min_sunset_diff>=0 and min_sunrise_diff<=0:
+        sunrise_diff_hours=np.around((f_t1_datetime-sun_rise_set_list[i]).total_seconds()/3600,1)
+        sunset_diff_hours=np.around((f_t1_datetime-sun_rise_set_list[i+1]).total_seconds()/3600,1)
+    
+    if (sun_rise_set_list[i] in sunset_t_list)&(sun_rise_set_list[i+1] in sunrise_t_list):
         dn="night"
+        sunset_diff_hours=np.around((f_t1_datetime-sun_rise_set_list[i]).total_seconds()/3600,1)
+        sunrise_diff_hours=np.around((f_t1_datetime-sun_rise_set_list[i+1]).total_seconds()/3600,1)
         
     return sunrise_diff_hours, sunset_diff_hours, dn
     
