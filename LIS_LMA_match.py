@@ -4,6 +4,9 @@ Created on Tue May  3 11:02:34 2022
 
 @author: yanan
 """
+
+
+
 from pyltg.core.lis import LIS
 import pyltg.core.lis as ltgLIS
 
@@ -24,6 +27,15 @@ from scipy.spatial import ConvexHull
 from matplotlib import cm
 from astral.sun import sun
 from astral import LocationInfo
+
+def save_obj(obj, name):
+    with open(name, 'wb') as f:
+        pickle.dump(obj, f, pickle.HIGHEST_PROTOCOL)
+
+def load_obj(name):
+    with open(name, 'rb') as f:
+        return pickle.load(f)
+
 
 def find_time_ranges_of_LIS_events_over_LMA (l,LMA_center,distance_thres_km):
     E=l.events.data
@@ -1291,6 +1303,8 @@ for i, fname in enumerate(fname_list):
         # if m['LIS detection']==True:
         #     plot_LMA_LIS_MATCH(m,ii,LMA_center)
 
+pkl_name=LMA_NAME+'_LIS_matches.pkl'
+save_obj(M,)
 
 # if __name__ == "__main__":
 #     main()
