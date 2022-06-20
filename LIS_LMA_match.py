@@ -1304,7 +1304,7 @@ for i, fname in enumerate(fname_list):
         #     plot_LMA_LIS_MATCH(m,ii,LMA_center)
 
 pkl_name=LMA_NAME+'_LIS_matches.pkl'
-save_obj(M,)
+save_obj(M,pkl_name)
 
 # if __name__ == "__main__":
 #     main()
