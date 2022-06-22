@@ -99,9 +99,10 @@ NALMA_coordinates=np.array([[34.8092586,  -87.0357225],
                             [35.1532036,  -87.0611744],
                             [35.0684567,  -86.5624089]])
 
-NALMA_center=np.array([34.8,-86.85])
-distance_threshold=80
-# NALMA_center=np.array([29.64,-82.35])
+#LMA_center=np.array([34.8,-86.85]) # NALMA
+LMA_center=np.array([35.3,-98.5]) # OKLMA
+distance_threshold=150
+
 
 ### plot NALMA station coordinates:
 # fig, ax=plt.subplots()
@@ -113,7 +114,7 @@ distance_threshold=80
 # ax.legend(handles=[p1,p4], loc='upper right')
 
 data_dir='E:/LIS_data/'
-LMA_network_name='NALMA'
+LMA_network_name='OKLMA'
 fname_list=[]
 
 for path, subdirs, files in os.walk(data_dir):
@@ -146,7 +147,7 @@ for i, fname in enumerate(fname_list):
     
     n_flashes=len(f_lat)
     
-    NALMA_center_duplicates=np.tile(NALMA_center, (n_flashes, 1))
+    NALMA_center_duplicates=np.tile(LMA_center, (n_flashes, 1))
     f_d_2_lma=haversine_distance(f_latlon,NALMA_center_duplicates)
     
     num_f_within_lma=len(np.where(f_d_2_lma<distance_threshold)[0])
