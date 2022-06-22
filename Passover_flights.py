@@ -10,7 +10,7 @@ Given a folder with all LIS files that you want to perform a search,
 it saves the files names in CSV format. This script were kept as a separate one simply because the searching took a while. 
 It would be more efficient if we just run such search once and save the matched LIS files for future usage.
 
-In this example, we used NALMA and only search for LIS events within 80 km of NALMA center
+In this example, we used NALMA and only search for LIS events within 120 km of NALMA center
 
 """
 
@@ -18,37 +18,9 @@ import os
 from pyltg.core.lis import LIS
 import pymap3d as pm
 import numpy as np
-
-# imports for plotting
 import matplotlib.pyplot as plt
-# import cartopy.crs as ccrs
-# import cartopy.feature as cfeature
 
 
-def give_circile_coordinates(centerLat,centerLon,radius):
-    import math
-    
-    # # inputs
-    # radius = 75*1e3# m - the following code is an approximation that stays reasonably accurate for distances < 100km
-    # centerLat =  34.725278 # latitude of circle center, decimal degrees
-    # centerLon = -86.645101 # Longitude of circle center, decimal degrees
-    
-    # parameters
-    N = 1000 # number of discrete sample points to be generated along the circle
-    
-    # generate points
-    
-    circle_points=np.zeros((N,2))
-    
-    for k in range(N):
-        # compute
-        angle = math.pi*2*k/N
-        dx = radius*math.cos(angle)
-        dy = radius*math.sin(angle)
-        circle_points[k,0]=centerLat + (180/math.pi)*(dy/6378137)
-        circle_points[k,1]=centerLon + (180/math.pi)*(dx/6378137)/math.cos(centerLat*math.pi/180)
-
-    return circle_points
 
 def haversine_distance(latlon1, latlon2):                                                                       
     """                                                                                                                 
@@ -103,15 +75,6 @@ NALMA_coordinates=np.array([[34.8092586,  -87.0357225],
 LMA_center=np.array([35.3,-98.5]) # OKLMA
 distance_threshold=150
 
-
-### plot NALMA station coordinates:
-# fig, ax=plt.subplots()
-# # ax.set_aspect('equal', adjustable='box')
-# p1=ax.scatter(NALMA_coordinates[:,1],NALMA_coordinates[:,0],s=90,marker='o', color="none", edgecolor="red",linewidth=2, label='NALMA sensors')
-# circle1_points=give_circile_coordinates(34.8,-86.85,80*1e3)
-# p4,=ax.plot(circle1_points[:,1],circle1_points[:,0],label='r=80 km',color='r',linestyle='--')
-# ax.set_box_aspect(1)
-# ax.legend(handles=[p1,p4], loc='upper right')
 
 data_dir='E:/LIS_data/'
 LMA_network_name='OKLMA'
