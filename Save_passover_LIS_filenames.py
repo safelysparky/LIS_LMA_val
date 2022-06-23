@@ -9,12 +9,10 @@ that were detected from space over a lightning mapping array detection domain.
 Given a folder with all LIS files that you want to perform a search, 
 it saves the files names in CSV format. 
 
-There is also a optional function that produce a 
+This script were kept as a separate one from the LIS_LMA_match.py simply because the searching took a while for years of LIS files 
+It would be more efficient if we just run such search once and save the matched LIS filenames for future usage.
 
-This script were kept as a separate one simply because the searching took a while. 
-It would be more efficient if we just run such search once and save the matched LIS files for future usage.
-
-In this example, we used NALMA and only search for LIS events within 120 km of NALMA center
+In this example, we used NALMA and only search for LIS events within 150 km of NALMA center
 
 """
 
@@ -72,7 +70,7 @@ def haversine_distance(latlon1, latlon2):
 
 
 LMA_center=np.array([34.8,-86.85]) # NALMA
-distance_threshold=120 # Distance threshold set for looking for LIS events
+distance_threshold=150 # Distance threshold set for looking for LIS events
 
 
 data_dir='E:/LIS_data/'
@@ -95,16 +93,10 @@ num_null_files=0
 
 
 matched_filenames=open("LIS_"+LMA_name+"_matched_filenames.txt", "w")
-LMA_files_url=open(LMA_name+"_files_url.txt", "w")
-
-#example_url="https://data.ghrc.earthdata.nasa.gov/ghrcw-protected/nalma__1/NALMA_220619_234000_0600.dat.gz"
-url_with_placeholders="https://data.ghrc.earthdata.nasa.gov/ghrcw-protected/nalma__1/NALMA_{YYMMDD_mmhhss}_0600.dat.gz"
-one_lma_file_duration=600
-# print(url_with_placeholders.format(YYMMDD="220619",mmhhss="234000"))
 
 
 
-for i, fname in enumerate(fname_list[:100]):
+for i, fname in enumerate(fname_list):
     print(str(i+1)+'/'+str(len(fname_list)),fname)
     l = LIS(fname)
     
@@ -138,22 +130,8 @@ for i, fname in enumerate(fname_list[:100]):
         # each column: fname full path, num_LIS_flashes, first_LIS_flash_time, last_LIS_flash_time
         matched_filenames.write(f"{fname},{num_f_within_lma},{t1_close_flashes},{t2_close_flashes}\n")
         
-        t1_epoch_s=np.floor(t1_close_flashes.value/int(one_lma_file_duration*1e9))*one_lma_file_duration
-        t2_epoch_s=np.floor(t2_close_flashes.value/int(one_lma_file_duration*1e9))*one_lma_file_duration
-        
-        ts_epoch_s=np.arange(t1_epoch_s,t2_epoch_s+one_lma_file_duration,one_lma_file_duration)
-        
-        
-        for t_epoch in ts_epoch_s:
-            t_epoch_stamp=pd.to_datetime(t_epoch, unit='s', origin='unix')
-            date_time_str=t_epoch_stamp.strftime('%y%m%d_%H%M%S') # example: "170301_191000"
-            url=url_with_placeholders.format(YYMMDD_mmhhss=date_time_str)
-            LMA_files_url.write(f"{url}\n")
-        
-        
 
 matched_filenames.close()
-LMA_files_url.close()
 
     
     
