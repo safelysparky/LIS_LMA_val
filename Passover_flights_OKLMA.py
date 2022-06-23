@@ -20,8 +20,10 @@ In this example, we used NALMA and only search for LIS events within 120 km of N
 
 import os
 from pyltg.core.lis import LIS
+import pymap3d as pm
 import numpy as np
-import pandas as pd
+import matplotlib.pyplot as plt
+
 
 
 def haversine_distance(latlon1, latlon2):                                                                       
@@ -72,19 +74,19 @@ def haversine_distance(latlon1, latlon2):
 
 
 LMA_center=np.array([34.8,-86.85]) # NALMA
-distance_threshold=120 # Distance threshold set for looking for LIS events
+#LMA_center=np.array([35.3,-98.5]) # OKLMA
+distance_threshold=120
 
 
 data_dir='E:/LIS_data/'
-LMA_name='NALMA'
-
+LMA_network_name='NALMA'
 
 fname_list=[]
 
-#grab .nc files' full path in the folder, assume each filename has "LIS" in it:
+#grab .nc files' full path in the folder:
 for path, subdirs, files in os.walk(data_dir):
     for name in files:
-        if (name[-3:]=='.nc') & ('LIS' in name) :
+        if name[-3:]=='.nc':
             name=os.path.join(path, name).replace("\\" , "/")
             fname_list.append(name)
     
@@ -94,15 +96,7 @@ num_flashes_within_lma=[]
 num_null_files=0
 
 
-matched_filenames=open("LIS_"+LMA_name+"_matched_filenames.txt", "w")
-LMA_files_url=open(LMA_name+"_files_url.txt", "w")
-
-#example_url="https://data.ghrc.earthdata.nasa.gov/ghrcw-protected/nalma__1/NALMA_220619_234000_0600.dat.gz"
-url_with_placeholders="https://data.ghrc.earthdata.nasa.gov/ghrcw-protected/nalma__1/NALMA_{YYMMDD_mmhhss}_0600.dat.gz"
-one_lma_file_duration=600
-# print(url_with_placeholders.format(YYMMDD="220619",mmhhss="234000"))
-
-
+matched_filenames=open("LIS_"+LMA_network_name+"_matched_filenames.txt", "w")
 
 for i, fname in enumerate(fname_list[:100]):
     print(str(i+1)+'/'+str(len(fname_list)),fname)
@@ -121,39 +115,16 @@ for i, fname in enumerate(fname_list[:100]):
     n_flashes=len(f_lat)
     
     f_d_2_lma=haversine_distance(f_latlon,LMA_center)
-    within_thres_idx=np.where(f_d_2_lma<distance_threshold)[0]
     
-    
-    num_f_within_lma=len(within_thres_idx)
+    num_f_within_lma=len(np.where(f_d_2_lma<distance_threshold)[0])
     
     if num_f_within_lma>0:
-        
-        t_close_flashes=f['time'].iloc[within_thres_idx]
-        t1_close_flashes=t_close_flashes.min()
-        t2_close_flashes=t_close_flashes.max()
-        
-        passover_fname_list.append(fname)
-        num_flashes_within_lma.append(num_f_within_lma)
-        
-        # each column: fname full path, num_LIS_flashes, first_LIS_flash_time, last_LIS_flash_time
-        matched_filenames.write(f"{fname},{num_f_within_lma},{t1_close_flashes},{t2_close_flashes}\n")
-        
-        t1_epoch_s=np.floor(t1_close_flashes.value/int(one_lma_file_duration*1e9))*one_lma_file_duration
-        t2_epoch_s=np.floor(t2_close_flashes.value/int(one_lma_file_duration*1e9))*one_lma_file_duration
-        
-        ts_epoch_s=np.arange(t1_epoch_s,t2_epoch_s+one_lma_file_duration,one_lma_file_duration)
-        
-        
-        for t_epoch in ts_epoch_s:
-            t_epoch_stamp=pd.to_datetime(t_epoch, unit='s', origin='unix')
-            date_time_str=t_epoch_stamp.strftime('%y%m%d_%H%M%S') # example: "170301_191000"
-            url=url_with_placeholders.format(YYMMDD_mmhhss=date_time_str)
-            LMA_files_url.write(f"{url}\n")
-        
-        
+       passover_fname_list.append(fname)
+       num_flashes_within_lma.append(num_f_within_lma)
+       matched_filenames.write(fname + "\n")
 
 matched_filenames.close()
-LMA_files_url.close()
+
 
     
     

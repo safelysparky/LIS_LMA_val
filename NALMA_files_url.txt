@@ -1,0 +1,1 @@
+https://data.ghrc.earthdata.nasa.gov/ghrcw-protected/nalma__1/NALMA_170301_191000_0600.dat.gz
