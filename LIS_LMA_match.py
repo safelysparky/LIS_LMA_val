@@ -19,7 +19,6 @@ import pandas as pd
 import gzip
 import datetime
 
-from pyproj import Transformer
 from shapely.geometry import Point
 from shapely.geometry.polygon import Polygon
 from shapely.geometry import LinearRing
@@ -1267,18 +1266,7 @@ for i, row in df.iterrows():
 pkl_name=LMA_NAME+'_LIS_matches.pkl'
 save_obj(M,pkl_name)
 
-# if __name__ == "__main__":
-#     main()
 
-# from line_profiler import LineProfiler
-
-# lprofiler = LineProfiler()
-# lprofiler.add_function(LMA_LIS_match)
-# lprofiler.add_function(get_polygons_of_events_in_E2)
-# lp_wrapper = lprofiler(main)
-
-# lp_wrapper()
-# lprofiler.print_stats()
 
 
 
