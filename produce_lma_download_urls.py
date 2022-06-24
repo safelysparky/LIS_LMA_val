@@ -2,6 +2,14 @@
 """
 Created on Thu Jun 23 08:48:50 2022
 
+This script serves to produce a downloading urls of LMA files, based on LIS_LMA_matched_filenames.txt files.
+The ouput url txt file can be used for wget command to download lma files so that you do not need to manually
+find corresponding lma files and then download them.
+
+But you need to provide the example url links with placeholders, sometimes LMA filename format 
+varies, so some adjustment are needed to match the format
+
+
 @author: yanan
 """
 
@@ -12,8 +20,6 @@ import numpy as np
 strftime_format1='%y%m%d_%H%M%S' # e.g. '220412_144000'
 strftime_format2='%Y%m%d_%H%M%S' # e.g. '20220412_144000'
 strftime_format2='%Y%m%d_%H' # e.g. '20220412_14'
-
-
 
 
 
@@ -44,8 +50,11 @@ df=pd.read_csv(cvs_fname,names=['LIS_fnames','num_of_flashes','t1','t2'])
 
 LMA_files_url=open(LMA_name+"_files_url.txt", "w")
 for index, row in df.iterrows():
-    t1_close_flashes=pd.Timestamp(row['t1'])
-    t2_close_flashes=pd.Timestamp(row['t2'])
+    t1_close_flashes=pd.Timestamp(row['t1'])-pd.Timedelta(3, "seconds") # add 3 second buffer
+    t2_close_flashes=pd.Timestamp(row['t2'])+pd.Timedelta(3, "seconds") # add 3 second buffer
+    
+    
+    
     t1_epoch_s=np.floor(t1_close_flashes.value/int(one_lma_file_duration*1e9))*one_lma_file_duration
     t2_epoch_s=np.floor(t2_close_flashes.value/int(one_lma_file_duration*1e9))*one_lma_file_duration
         

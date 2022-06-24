@@ -36,7 +36,6 @@ def load_obj(name):
     with open(name, 'rb') as f:
         return pickle.load(f)
 
-
 def find_time_ranges_of_LIS_events_over_LMA (l,LMA_center,distance_thres_km):
     E=l.events.data
     
@@ -136,16 +135,6 @@ def determine_flash_occur_in_day_or_night(f_t1_tstamp,ref_lat,ref_lon):
     return sunrise_diff_hours, sunset_diff_hours, dn
 
             
-lonlat_to_webmercator = Transformer.from_crs("EPSG:4326", "EPSG:3857", always_xy=True)
-def latlon_to_Mercator(lon, lat):
-    x, y = lonlat_to_webmercator.transform(lon, lat)
-    return x, y
-
-
-def load_obj(name):
-    with open(name, 'rb') as f:
-        return pickle.load(f)
-
 
 from matplotlib.gridspec import GridSpec
 def LIS_LMA_plot_layout():
@@ -276,36 +265,6 @@ def group_pd_tstamps_to_epoch(group_t_stamps):
         
     return group_epoch
 
-def LIS_tstamp_to_tod(tstamp):
-    tstamp_str=str(tstamp)[:10] #eg '2017-03-01'
-    ref_unix_ns=pd.Timestamp(tstamp_str).value # use it as reference
-    t_tod=(tstamp.value-ref_unix_ns)/1e9
-    
-    return t_tod
-
-def tod_2_tstamp(tod):
-    h=int(tod/3600)
-    m=int((tod-h*3600)/60)
-    s=tod-h*3600-m*60
-    
-    if h<10:
-        h_str='0'+str(h)
-    else:
-        h_str=str(h)
-    
-    if m<10:
-        m_str='0'+str(m)
-    else:
-        m_str=str(m)
-        
-    if s<10:
-        s_str='0'+str(s)
-    else:
-        s_str=str(s)
-
-    t_stamp=h_str+':'+m_str+':'+s_str
-    
-    return t_stamp
 
 def find_lma_data_line(txt_filename):
     # this function get the line number of "*** data ***" below which data are given
@@ -959,7 +918,9 @@ def LMA_LIS_match(M, batch_flashes_idx,l,LMA_center):
         
         #find the corresponding px and py for the centroid
         d_pixels_2_centroid=d_point_to_points_2d([hull_centroid_x,hull_centroid_y],all_pixels_xy)
-        centroid_pixel_idx=np.where((d_pixels_2_centroid<5)&(d_pixels_2_centroid==np.min(d_pixels_2_centroid)))[0][0]
+        
+        centroid_pixel_idx=d_pixels_2_centroid.argmin()
+    
         centroid_pxpy=pxpy[centroid_pixel_idx]
         
         # detemine if it is day or night when this flash occurred       
@@ -1210,13 +1171,11 @@ ref_lon=LMA_center[1]
 ref_alt=0
 
 
-txt_file = open("C:/Users/yanan/Desktop/git_local/LIS_LMA_val/LIS_NALMA_matched_filenames.txt", "r")
-
-fname_list=txt_file.read().splitlines() 
+csv_fname ="C:/Users/yanan/Desktop/git_local/LIS_LMA_val/LIS_NALMA_matched_filenames.txt"
 
 LMA_NAME='NALMA'
-LMA_L1_folder='E:/NALMA_LIS_project/'
-ENTLN_folder='E:/ENTLN_LIS_project/'
+LMA_L1_folder='E:/NALMA_LIS/LMA data/'
+ENTLN_folder='E:/NALMA_LIS/ENTLN data/'
 fig_folder='C:/Users/yanan/Desktop/LIS_fig/'
 
 EN_data_available=True
@@ -1224,13 +1183,15 @@ EN_data_available=True
 M={} # initialize the dictionary for LMA-LIS match
 in_FOV_lma_flash_no=0 # the initial value that will be used for LMA-LIS match dict key
 
+df=pd.read_csv(csv_fname,names=['LIS_fnames','num_of_flashes','t1','t2'])
 
-for i, fname in enumerate(fname_list):
+for i, row in df.iterrows():
     
-    # if i+1!=39:
+    # if i+1!=6:
     #     continue
+    fname=row['LIS_fnames']
     
-    print(str(i+1)+'/'+str(len(fname_list)),fname)
+    print(str(i+1)+'/'+str(len(df)),fname)
 
     ########################################################################
     # load the ~90 min LIS data
@@ -1239,7 +1200,7 @@ for i, fname in enumerate(fname_list):
     
     # find LIS events within X-km of LMA network center, the time ranges of those LIS events
     # will be used to extract LMA and ENTLN data later
-    distance_thres_km=100
+    distance_thres_km=150
     first_LIS_event_t,last_LIS_event_t=find_time_ranges_of_LIS_events_over_LMA (l,LMA_center,distance_thres_km)
     # if no LIS events found, will return a empty list, then this file will be skipped
     if first_LIS_event_t==[]:
@@ -1263,7 +1224,7 @@ for i, fname in enumerate(fname_list):
 
     # Here we keep only flashes with number of sources more than a threshold
     # since flashes with just a few sources could be just noises
-    n_sources_thres=50
+    n_sources_thres=20
     S_sorted_big_flash, big_flash_info=filter_flashes_based_on_number_of_sources(S_sorted,flash_info,n_sources_thres)
     
     # extract ENLTN data, Note include EN data is optional
