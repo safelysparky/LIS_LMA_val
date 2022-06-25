@@ -615,7 +615,7 @@ def load_ENTLN_data(ENTLN_folder,ref_lat,ref_lon,ref_alt,first_LIS_event_t,last_
     EN_xy_km=EN_xyz[:,0:2]/1e3
     
     # EN_type are also for fake event ID, just to match format
-    EN_events=np.hstack((EN_type,EN_xy_km,fake_EN_alt,EN_t_epoch,EN_pc)) 
+    EN_events=np.hstack((EN_type,EN_xy_km,fake_EN_alt,EN_t_epoch,EN_pc,EN_lat,EN_lon)) 
     cg_events=EN_events[EN_type.flatten()==0,:]
 
     return cg_events     
@@ -1262,6 +1262,13 @@ for i, row in df.iterrows():
         # m=M[ii]    
         # if m['LIS detection']==True:
         #     plot_LMA_LIS_MATCH(m,ii,LMA_center)
+
+
+# Option to make lma array and entln array to be pandas df to increase the readibility
+# and also remove some temp columns that no longer needed
+
+
+
 
 pkl_name=LMA_NAME+'_LIS_matches.pkl'
 save_obj(M,pkl_name)
