@@ -356,6 +356,8 @@ def LMA_fname_parse(fname):
     for i, name_pieces in enumerate(fname_split):
         if 'LMA' in name_pieces:
             break
+        if 'LYLOUT' in name_pieces: # some LMA files do not have LMA network name
+            break
     lma_name=name_pieces
     date_str=fname_split[i+1]
     
@@ -392,7 +394,7 @@ def find_involved_lma_file(NALMA_folder,LMA_NAME,first_LIS_event_t,last_LIS_even
         file_end_epoch_ns=file_start_epoch_ns+duration_ns
         
         # first make sure LMA network name matches
-        if LMA_NAME != lma_name:
+        if (lma_name!=LMA_NAME) & (lma_name!="LYLOUT"):
             continue
 
         # flash comletely left of the lma file t range
