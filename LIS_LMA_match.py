@@ -423,14 +423,26 @@ def extract_lma_data_in_LIS_passover_time_range(LMA_L1_folder,LMA_NAME,ref_lat,r
         return S_selected  # return here skip the rest of function
     
     #load the lma file and extract those only within the time ranges of passover LIS events:
+    non_empty_file_num=0
     for j, lma_fname in enumerate(involved_lma_files):
         S_one_file=read_lma_format_data_as_nparray_with_epoch_t(lma_fname,ref_lat,ref_lon,ref_alt)
         
-        if j==0:
-            S=S_one_file
+        if len(S_one_file)!=0:
+            non_empty_file_num+=1
         else:
+            print(f"The file {lma_fname} is empty!!!!!")
+        
+        if non_empty_file_num==1:
+            S=S_one_file
+        elif non_empty_file_num>1:
             # stack them if multiple files needs to be loaded
             S=np.vstack((S,S_one_file))
+            
+    # if all files are just empty        
+    if non_empty_file_num==0:
+        S_selected=[]
+        return S_selected
+            
 
     #shink it to the time range we needed, -/+1s of the LIS passover events time ranges:
     idx_keep=np.where((S[:,3]>first_LIS_event_epoch-1)&(S[:,3]<last_LIS_event_epoch+1))[0]
