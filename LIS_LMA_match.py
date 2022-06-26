@@ -955,7 +955,7 @@ def LMA_LIS_match(M, batch_flashes_idx,l,LMA_center):
         M[f_idx]['flash area']=round(hull_polygon.area)
         M[f_idx]['centroid pxpy']=centroid_pxpy
         M[f_idx]['dn']= dn
-        
+        M[f_idx]['lma_flash_centroid_location']=np.array([hull_centroid_x,hull_centroid_y])
         
         # Seach for LIS events:
         # first lets narrow-down the events data based on temporal and spatial span of lma data        
