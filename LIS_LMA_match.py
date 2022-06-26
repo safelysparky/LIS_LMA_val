@@ -604,8 +604,10 @@ def load_ENTLN_data(ENTLN_folder,ref_lat,ref_lon,ref_alt,first_LIS_event_t,last_
     if os.path.exists(ENTLN_file1) is True:
         EN=np.load(ENTLN_file1)
     else:
-        EN=np.array([])
-        print(f"EN data: {ENTLN_file1} does not exist, created an empty array instead")
+        print(f"EN data: {ENTLN_file1} does not exist, returned an empty array instead for cg_events")
+        cg_events=np.array([])
+        return cg_events
+        
 
     # if LIS data span two days:
     if e2_date_str!=e1_date_str:
@@ -727,6 +729,12 @@ def get_lma_convex_hull_polygon(f_xy):
 
 
 def flash_type_assign(S_sorted_big_flash,cg_events,big_flash_info):
+    
+    # first check if cg_events is empty
+    # if cg_events is empty, created a fake one so that all flashes will not match the cg and therefore all flashes are ICs
+    if len(cg_events)==0:
+        cg_events=np.array([-999999,-999999,-999999,-999999,-999999]).reshape(1,-1)
+    
     
     # the column used to assign big_flash idx to a CG event, if the CG event is a match for a big flash
     # default for unmatches is -999
@@ -1261,6 +1269,10 @@ for i, row in df.iterrows():
     # since flashes with just a few sources could be just noises
     n_sources_thres=20
     S_sorted_big_flash, big_flash_info=filter_flashes_based_on_number_of_sources(S_sorted,flash_info,n_sources_thres)
+    
+    if len(S_sorted_big_flash)==0:
+        print(f"No flashes more than {n_sources_thres} lma sources")
+        continue
     
     # extract ENLTN data, Note include EN data is optional
     # note in this analysis, EN data is in numpy array format, and has already been filtered 
