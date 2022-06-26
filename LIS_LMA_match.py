@@ -684,7 +684,7 @@ def filter_flashes_within_FOV(S_sorted_big_flash, big_flash_info,l,M,in_FOV_lma_
                 cg_idx=np.where(cg_events[:,-1]==ii)[0]
                 cg_in_this_flash=cg_events[cg_idx]
                 
-                M[in_FOV_lma_flash_no]['RSs']=cg_in_this_flash
+                M[in_FOV_lma_flash_no]['RS']=cg_in_this_flash
                     
     return M,in_FOV_lma_flash_no
 
@@ -1096,9 +1096,9 @@ def plot_LMA_LIS_MATCH(m,ii,LMA_center,fig_save=False,fig_folder=None):
     axs[0].scatter(lma_t,lma_z,c=f_t, marker='.', zorder=13,cmap='jet')
     
     #plot cg events if any:
-    if 'RSs' in m.keys():
+    if 'RS' in m.keys():
         ax0_ylim=axs[0].get_ylim()
-        cg_events_in_this_flash=m['RSs']
+        cg_events_in_this_flash=m['RS']
         for cg in cg_events_in_this_flash:
             cg_t=(cg[4]-f_t1)*1e3
             axs[0].plot([cg_t,cg_t],[ax0_ylim[0],ax0_ylim[1]],'-k')
@@ -1160,6 +1160,23 @@ def plot_LMA_LIS_MATCH(m,ii,LMA_center,fig_save=False,fig_folder=None):
         fig_name=fig_folder+str(ii)+'_'+full_t_stamp+'.png'
         fig.savefig(fig_name,dpi=300,bbox_inches='tight')
 
+def make_arrays_into_dateframe(M):
+    for key, m in M.items():
+        lma_ary=m['LMA']
+        lma_ary1=lma_ary[:,[0,1,8,3,4,5,6,7]]
+        lma_ary1[:,2]=lma_ary1[:,2]/1e3 # convert lma altitude from m to km
+        lma_df=pd.DataFrame(lma_ary1,columns=['x','y','altitude','t','chi','power','lat','lon'])
+        lma_df.t=pd.to_datetime(lma_df.t,unit='s', origin='unix')
+        m['LMA']=lma_df
+        
+        if 'RS' in m.keys():
+            rs_ary=m['RS']
+            rs_ary1=rs_ary[:,[1,2,3,4,5,6,7]]
+            rs_df=pd.DataFrame(rs_ary1, columns = ['x','y','z','t','peak current','lat','lon'])
+            rs_df.t=pd.to_datetime(rs_df.t, unit='s', origin='unix')
+            m['RS']=rs_df
+        
+    return M
 
 
 # def  main():
@@ -1186,7 +1203,7 @@ df=pd.read_csv(csv_fname,names=['LIS_fnames','num_of_flashes','t1','t2'])
 
 for i, row in df.iterrows():
     
-    # if i+1!=6:
+    # if i+1!=1:
     #     continue
     fname=row['LIS_fnames']
     
@@ -1240,7 +1257,7 @@ for i, row in df.iterrows():
     
     
     #  further filter out LMA flashes that were out of the LIS fov and put those in FOV in a dictionary
-    # in addtion, if entln cg data are provided, RSs will be assgined to LMA flashes and flash type will be given
+    # in addtion, if entln cg data are provided, RS will be assgined to LMA flashes and flash type will be given
     M, in_FOV_lma_flash_no_updated =filter_flashes_within_FOV(S_sorted_big_flash, big_flash_info, l, M, in_FOV_lma_flash_no,EN_data_available, cg_events)
     
     # the flashes idx (key in M dictionary) of this batch LIS file
@@ -1266,11 +1283,11 @@ for i, row in df.iterrows():
 
 # Option to make lma array and entln array to be pandas df to increase the readibility
 # and also remove some temp columns that no longer needed
+M=make_arrays_into_dateframe(M)
 
 
 
-
-pkl_name=LMA_NAME+'_LIS_matches.pkl'
+pkl_name='E:/NALMA_LIS/'+LMA_NAME+'_LIS_matches.pkl'
 save_obj(M,pkl_name)
 
 
