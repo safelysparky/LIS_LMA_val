@@ -662,6 +662,11 @@ def filter_flashes_within_FOV(S_sorted_big_flash, big_flash_info,l,M,in_FOV_lma_
         fov1_lonlat=np.hstack((fov1[0].lon.reshape(-1,1),fov1[0].lat.reshape(-1,1)))
         fov2_lonlat=np.hstack((fov2[0].lon.reshape(-1,1),fov2[0].lat.reshape(-1,1)))
         
+        #TODO: somehow some nan in the fov1 and fov2, skip this flash for now, need t double check that with PB
+        if(np.isnan(fov1_lonlat[:,0]).any()) or (np.isnan(fov1_lonlat[:,1]).any()):
+            print("The LIS fov Array contain NaN values")
+            continue
+        
         # make sure all LMA sources are within the fovs of LIS at flash t1 and t2
         in_fov1=check_if_within_polygon(fov1_lonlat,f_lat,f_lon)
         if in_fov1 is False:
