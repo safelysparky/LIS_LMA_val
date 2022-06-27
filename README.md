@@ -11,7 +11,7 @@ Scripts in thie repo serves to
 3. calculate the detection efficiency of LIS using LMA flashes as ground-truth. (LIS_DE_analysis_against_LMA.py)
 
 ## Further info regarding each script:
-1) [Save_passover_LIS_filenames] (https://github.com/safelysparky/LIS_LMA_val/blob/main/Save_passover_LIS_filenames.py)
+[Save_passover_LIS_filenames] (https://github.com/safelysparky/LIS_LMA_val/blob/main/Save_passover_LIS_filenames.py)
 
 
 ## Contact
