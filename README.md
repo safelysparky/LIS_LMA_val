@@ -7,7 +7,7 @@ You need to download the pyltg package developed by Dr. Phillip Bitzer
 ## Overview of this repo:
 Scripts in thie repo serves to 
 1. [Save_passover_LIS_filenames.py](https://github.com/safelysparky/LIS_LMA_val/blob/main/Save_passover_LIS_filenames.py) find LIS .nc files that contain LIS flashes over a LMA network. 
-2. [LIS_LMA_match.py](https://github.com/safelysparky/LIS_LMA_val/blob/main/LIS_LMA_match.py) find LIS events matching the flashes detected by the LMA, and save all matches in a dictionary.
+2. [LIS_LMA_match.py](https://github.com/safelysparky/LIS_LMA_val/blob/main/LIS_LMA_match.py) find LIS events matching the LMA flashes, and save all matches in a dictionary.
 3. [LIS_DE_analysis_against_LMA.py](https://github.com/safelysparky/LIS_LMA_val/blob/main/LIS_DE_analysis_against_LMA.py) calculate the detection efficiency of LIS using LMA flashes as ground-truth.
 
 ## Further info regarding each script:
