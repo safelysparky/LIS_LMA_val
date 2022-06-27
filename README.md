@@ -1,6 +1,5 @@
 # Validation of  peformance of Lightning Imaging Sensor onboard International Space Station (ISS-LIS) using lightning mapping array (LMA) datasets
 
-
 ## Dependences
 You need to download the pyltg package developed by Dr. Phillip Bitzer 
 <https://www.nsstc.uah.edu/users/phillip.bitzer/python_doc/pyltg/readme_link.html#installing>
@@ -13,7 +12,7 @@ Scripts in thie repo serves to
 
 [a link](https://github.com/user/repo/blob/branch/other_file.md)
 ## Further info regarding each script:
-1) Save_password_LIS_filenames.py
+1) [Save_passover_LIS_filenames.py] (https://github.com/safelysparky/LIS_LMA_val/blob/main/Save_passover_LIS_filenames.py)
 
 
 ## Contact
