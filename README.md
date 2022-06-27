@@ -10,9 +10,8 @@ Scripts in thie repo serves to
 2. find LIS events matching the flashes detected by the LMA, and save all matches in a dictionary (LIS_LMA_match.py)
 3. calculate the detection efficiency of LIS using LMA flashes as ground-truth. (LIS_DE_analysis_against_LMA.py)
 
-[a link](https://github.com/user/repo/blob/branch/other_file.md)
 ## Further info regarding each script:
-1) [Save_passover_LIS_filenames.py] (https://github.com/safelysparky/LIS_LMA_val/blob/main/Save_passover_LIS_filenames.py)
+1) [Save_passover_LIS_filenames] (https://github.com/safelysparky/LIS_LMA_val/blob/main/Save_passover_LIS_filenames.py)
 
 
 ## Contact
