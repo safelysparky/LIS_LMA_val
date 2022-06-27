@@ -1,7 +1,7 @@
 # Validation of  peformance of Lightning Imaging Sensor onboard International Space Station (ISS-LIS) using lightning mapping array (LMA) datasets
 
 ## Dependences other than some standard packages (e.g., numpy, pandas, shapely)
-pyltg package developed by Dr. Phillip Bitzer for some handy functions for LIS data
+pyltg package for some handy functions for LIS data
 <https://www.nsstc.uah.edu/users/phillip.bitzer/python_doc/pyltg/readme_link.html#installing>
 
 astral for determinting the sunrise/sunset time at a give location
