@@ -23,23 +23,23 @@ for i, m in M.items():
     
     
     if 'LIS_events' in m.keys():
-        m['LIS_events']=m['LIS_events'][['time','lat','lon','radiance','id','_orig_id','parent_id']] # narrow down to fields that Dongshuai needs
+        #m['LIS_events']=m['LIS_events'][['time','lat','lon','radiance','id','_orig_id','parent_id']] # narrow down to fields that you actually needs
         m['LIS_events'].time=m['LIS_events'].time.astype('str')
         m['LIS_events']=m['LIS_events'].to_dict('list')
         
     if 'RS' in m.keys():
         m['RS'].t=m['RS'].t.astype('str')
         m['RS']=m['RS'].to_dict('list')
-        
-    # delete fields that are probably not needed by Dongshuai
+    
     if 'LIS_events_polygon_xy' in m.keys():    
-        m.pop('LIS_events_polygon_xy')
+        a=m['LIS_events_polygon_xy']
+        b=[x.tolist() for x in a]
+        m['LIS_events_polygon_xy']=b
         
-    m.pop('centroid pxpy')
-    m.pop('lma_flash_centroid_location')
+    m['centroid pxpy']=m['centroid pxpy'].tolist()    
+    m['lma_flash_centroid_location']=m['lma_flash_centroid_location'].tolist()
 
 
-# jd.save(M,'LIS_NALMA.json')
 with open('NALMA_LIS.json', 'w') as fp:
     json.dump(
         M, 
