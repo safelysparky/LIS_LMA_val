@@ -952,7 +952,7 @@ def LMA_LIS_match(M, batch_flashes_idx,l,LMA_center):
         # detemine if it is day or night when this flash occurred       
         sunrise_diff_hours, sunset_diff_hours, dn = determine_flash_occur_in_day_or_night(f_t1_tstamp,LMA_center[0],LMA_center[1])
        
-        M[f_idx]['flash area']=round(hull_polygon.area)
+        M[f_idx]['flash area']=round(hull_polygon.area*100)/100
         M[f_idx]['centroid pxpy']=centroid_pxpy
         M[f_idx]['dn']= dn
         M[f_idx]['lma_flash_centroid_location']=np.array([hull_centroid_x,hull_centroid_y])
