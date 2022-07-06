@@ -296,7 +296,6 @@ def plot_LMA_LIS_MATCH(m,ii,LMA_center,fig_save=False,fig_folder=None):
 M=load_obj('E:/NALMA_LIS/NALMA_LIS_matches.pkl')
 LMA_center=np.array([34.8,-86.85])
 
-
 num_LIS_detection_day=0
 num_LIS_detection_night=0
 
@@ -304,38 +303,81 @@ num_night_flashes=0
 num_day_flashes=0
 num_flashes=len(M)
 
-flash_area_DE=[]
+# 0:DE 
+# 1:Flash Size
+# 2:Number of sources
+# 3:Median source altitude
+# 4:Flash type
+# 5:max EN CG peak current
+# 6：Day or night
+# 7:px
+# 8:py
+
+F=np.zeros((len(M),9))
+
+
+
 
 for i, m in M.items():
-    if m['dn'] =='day':
-        num_day_flashes+=1
-        if m['LIS detection'] == True:
-            num_LIS_detection_day+=1
-            
-    if m['dn'] == 'night':
-        num_night_flashes+=1
-        if m['LIS detection'] == True:
-            num_LIS_detection_night+=1
+        
+    f=m['LMA']
     
+    # if LIS detected 
     if m['LIS detection'] == True:
-        detection_tf=1
+        F[i,0]=1
     else:
-        detection_tf=0
+        F[i,0]=0
     
-    # get flash area vs detection (1 or 0)
-    flash_area_DE.append([m['flash area'],detection_tf])
+    # flash size
+    F[i,1]=m['flash area']
+    
+    # Number of sources
+    F[i,2]=len(f)
+    
+    # Median source height
+    F[i,3]=np.median(f['altitude'])
+    
+    # Type
+    if m['type']=='IC flash':
+        F[i,4]=0
+    if m['type']=='Negative CG flash':
+        F[i,4]=1
+    if m['type']=='Positive CG flash':
+        F[i,4]=2
+        
+    # maximum CG peak current in absoluate value
+    if 'RS' in m.keys():
+        F[i,5]=np.max(abs(m['RS']['peak current']))
+    else:
+        F[i,5]=-999
+        
+    # day or night
+    if m['dn']=='day':
+        F[i,6]=1
+    else:
+        F[i,6]=0
+        
+    # px
+    F[i,7]=m['centroid pxpy'][0]
+        
+    # py
+    F[i,8]=m['centroid pxpy'][1]
+    
+
+
+
  
-flash_area_DE=np.array(flash_area_DE)
 
-num_LIS_detection=num_LIS_detection_day+num_LIS_detection_night
+# num_LIS_detection=num_LIS_detection_day+num_LIS_detection_night
 
-DE=np.around(num_LIS_detection/num_flashes,2)
-DE_day=np.around(num_LIS_detection_day/num_day_flashes,2)
-DE_night=np.around(num_LIS_detection_night/num_night_flashes,2)
+# DE=np.around(num_LIS_detection/num_flashes,2)
+# DE_day=np.around(num_LIS_detection_day/num_day_flashes,2)
+# DE_night=np.around(num_LIS_detection_night/num_night_flashes,2)
 
-print(f"LIS detected {num_LIS_detection}/{len(M)} LMA flashes, DE is {DE}")
-print(f"During day: LIS detected {num_LIS_detection_day}/{num_day_flashes} LMA flashes, DE is {DE_day}")
-print(f"During night: LIS detected {num_LIS_detection_night}/{num_night_flashes} LMA flashes, DE is {DE_night}")
+
+# print(f"LIS detected {num_LIS_detection}/{len(M)} LMA flashes, DE is {DE}")
+# print(f"During day: LIS detected {num_LIS_detection_day}/{num_day_flashes} LMA flashes, DE is {DE_day}")
+# print(f"During night: LIS detected {num_LIS_detection_night}/{num_night_flashes} LMA flashes, DE is {DE_night}")
 
 
 
