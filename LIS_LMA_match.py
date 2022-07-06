@@ -936,8 +936,8 @@ def LMA_LIS_match(M, batch_flashes_idx,l,LMA_center):
         # TODO: here need a line for hull in lat and lon
         hull_polygon=get_lma_convex_hull_polygon(f_xy)
 
-        # expand the convex hull by 2 km to account of location offset of LIS
-        hull_polygon_expanded = Polygon(hull_polygon.buffer(2.0).exterior) 
+        # expand the convex hull by 4 km to account of location offset of LIS
+        hull_polygon_expanded = Polygon(hull_polygon.buffer(4.0).exterior) 
         
         #find the centroid of the LMA polygon (before expanding)
         hull_centroid_x,hull_centroid_y=hull_polygon.centroid.coords.xy
