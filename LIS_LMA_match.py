@@ -963,7 +963,7 @@ def LMA_LIS_match(M, batch_flashes_idx,l,LMA_center):
         G=l.groups.data
         E=l.events.data
         E_epoch=  group_pd_tstamps_to_epoch(E.time)
-        idx_keep_temporal=np.where((E_epoch>=f_t1)&(E_epoch<=f_t2))[0]
+        idx_keep_temporal=np.where((E_epoch>=f_t1-2*1e-3)&(E_epoch<=f_t2+2*1e-3))[0]
         if len(idx_keep_temporal)==0:
             #print(f"base on time span of LMA flash no {f_idx}, no LIS events found")
             M[f_idx]['LIS detection']= False
