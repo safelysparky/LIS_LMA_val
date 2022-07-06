@@ -377,7 +377,7 @@ DE_day=np.around(num_LIS_detections_day/num_LMA_flashes_day,2)
 DE_night=np.around(num_LIS_detections_night/num_LMA_flashes_night,2)
 
 print(f"During day: LIS detected {num_LIS_detections_day}/{num_LMA_flashes_day} LMA flashes, DE is {DE_day}")
-print(f"During day: LIS detected {num_LIS_detections_night}/{num_LMA_flashes_night} LMA flashes, DE is {DE_night}")
+print(f"During night: LIS detected {num_LIS_detections_night}/{num_LMA_flashes_night} LMA flashes, DE is {DE_night}")
 
 #########################################
 #plot DE with different variables
@@ -386,8 +386,11 @@ print(f"During day: LIS detected {num_LIS_detections_night}/{num_LMA_flashes_nig
 DE_col=F[:,0]
 FA_col=F[:,1]
 SA_col=F[:,3]
+NS_col=F[:,2]
 
+#####################################
 # flash_area histogram
+#####################################
 fig,ax=plt.subplots(figsize=(10,8))
 bins=2**(np.arange(13)) # TODO: NEED TO CALCULATE THE ORDER
 
@@ -413,30 +416,33 @@ ax1=ax.twinx()
 ax1.plot(bins_middle,DE_per_bin,'-X',color='r')
 ax1.set_ylabel('Detection Efficiency')
 
-
+########################################
 # Meidan source altitude histogram
+########################################
 fig,ax=plt.subplots(figsize=(10,8))
-bins=np.arange(3,18,0.5) 
+bins=np.arange(6,12.5,0.5) 
 # remove flashes with altititude that are likely wrong
-idx_keep=np.where((SA_col>=3)&(SA_col<=18))[0]
-SA_col=SA_col[idx_keep]
+idx_keep=np.where((SA_col>=6)&(SA_col<=12))[0]
+SA_col_kept=SA_col[idx_keep]
+DE_col_kept=DE_col[idx_keep]
 
 bins_middle=np.diff(bins)/2+bins[0:-1]
 
-ax.hist(SA_col,bins=bins)
-ax.set_xlabel('Median Source Altitude (km)')
+ax.hist(SA_col_kept,bins=bins)
+ax.set_xlabel('Median Source Altitude in a Flash (km)')
 ax.set_ylabel('Number')
 
 # DE vs source altitude
-bin_idx=np.digitize(SA_col,bins=bins)
+bin_idx=np.digitize(SA_col_kept,bins=bins)
 DE_per_bin=np.zeros(len(bins)-1)
 
 bin_idx_unique=np.arange(len(bins)-1)+1
 for i, b_idx in enumerate(bin_idx_unique):
     idx=np.where(bin_idx==b_idx)[0]
-    DE_bin=DE_col[idx]
+    DE_bin=DE_col_kept[idx]
     DE_percent_bin=np.sum(DE_bin)/len(DE_bin)
     DE_per_bin[i]=DE_percent_bin
+    print(f"between {bins[i]} and {bins[i+1]}, number of events: {len(DE_bin)}, num_detections: {int(np.sum(DE_bin))}")
     
 ax1=ax.twinx()
 ax1.plot(bins_middle,DE_per_bin,'-X',color='r')
