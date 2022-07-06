@@ -296,15 +296,9 @@ def plot_LMA_LIS_MATCH(m,ii,LMA_center,fig_save=False,fig_folder=None):
 M=load_obj('E:/NALMA_LIS/NALMA_LIS_matches.pkl')
 LMA_center=np.array([34.8,-86.85])
 
-num_LIS_detection_day=0
-num_LIS_detection_night=0
-
-num_night_flashes=0
-num_day_flashes=0
-num_flashes=len(M)
 
 # 0:DE 
-# 1:Flash Size
+# 1:Flash area
 # 2:Number of sources
 # 3:Median source altitude
 # 4:Flash type
@@ -314,8 +308,6 @@ num_flashes=len(M)
 # 8:py
 
 F=np.zeros((len(M),9))
-
-
 
 
 for i, m in M.items():
@@ -328,8 +320,8 @@ for i, m in M.items():
     else:
         F[i,0]=0
     
-    # flash size
-    F[i,1]=m['flash area']
+    # flash area
+    F[i,1]=np.ceil(m['flash area'])
     
     # Number of sources
     F[i,2]=len(f)
@@ -340,10 +332,12 @@ for i, m in M.items():
     # Type
     if m['type']=='IC flash':
         F[i,4]=0
-    if m['type']=='Negative CG flash':
+    elif m['type']=='Negative CG flash':
         F[i,4]=1
-    if m['type']=='Positive CG flash':
+    elif m['type']=='Positive CG flash':
         F[i,4]=2
+    else:
+        F[i,4]=3 # bipolar flash
         
     # maximum CG peak current in absoluate value
     if 'RS' in m.keys():
@@ -364,9 +358,90 @@ for i, m in M.items():
     F[i,8]=m['centroid pxpy'][1]
     
 
+# Calculte DE
+num_LMA_flashes=len(F)
+num_LIS_detections=int(np.sum(F[:,0]))
+DE=np.around(num_LIS_detections/num_LMA_flashes,2)
+print(f"LIS detected {num_LIS_detections}/{num_LMA_flashes} LMA flashes, DE is {DE}")
+
+# Calculte day/night DE
+F_day=F[F[:,6]==1,:]
+F_night=F[F[:,6]==0,:]
+num_LMA_flashes_day=len(F_day)
+num_LMA_flashes_night=len(F_night)
+
+num_LIS_detections_day=int(np.sum(F_day[:,0]))
+num_LIS_detections_night=int(np.sum(F_night[:,0]))
+
+DE_day=np.around(num_LIS_detections_day/num_LMA_flashes_day,2)
+DE_night=np.around(num_LIS_detections_night/num_LMA_flashes_night,2)
+
+print(f"During day: LIS detected {num_LIS_detections_day}/{num_LMA_flashes_day} LMA flashes, DE is {DE_day}")
+print(f"During day: LIS detected {num_LIS_detections_night}/{num_LMA_flashes_night} LMA flashes, DE is {DE_night}")
+
+#########################################
+#plot DE with different variables
+#########################################
+
+DE_col=F[:,0]
+FA_col=F[:,1]
+SA_col=F[:,3]
+
+# flash_area histogram
+fig,ax=plt.subplots(figsize=(10,8))
+bins=2**(np.arange(13)) # TODO: NEED TO CALCULATE THE ORDER
+
+bins_middle=np.diff(bins)/2+bins[0:-1]
+
+ax.hist(FA_col,bins=bins)
+ax.set_xscale('log')
+ax.set_xlabel('Flash area ($km^2$)')
+ax.set_ylabel('Number')
+
+# DE vs flash area
+bin_idx=np.digitize(F[:,1],bins=bins)
+DE_per_bin=np.zeros(len(bins)-1)
+
+bin_idx_unique=np.arange(len(bins)-1)+1
+for i, b_idx in enumerate(bin_idx_unique):
+    idx=np.where(bin_idx==b_idx)[0]
+    DE_bin=DE_col[idx]
+    DE_percent_bin=np.sum(DE_bin)/len(DE_bin)
+    DE_per_bin[i]=DE_percent_bin
+    
+ax1=ax.twinx()
+ax1.plot(bins_middle,DE_per_bin,'-X',color='r')
+ax1.set_ylabel('Detection Efficiency')
 
 
- 
+# Meidan source altitude histogram
+fig,ax=plt.subplots(figsize=(10,8))
+bins=np.arange(3,18,0.5) 
+# remove flashes with altititude that are likely wrong
+idx_keep=np.where((SA_col>=3)&(SA_col<=18))[0]
+SA_col=SA_col[idx_keep]
+
+bins_middle=np.diff(bins)/2+bins[0:-1]
+
+ax.hist(SA_col,bins=bins)
+ax.set_xlabel('Median Source Altitude (km)')
+ax.set_ylabel('Number')
+
+# DE vs source altitude
+bin_idx=np.digitize(SA_col,bins=bins)
+DE_per_bin=np.zeros(len(bins)-1)
+
+bin_idx_unique=np.arange(len(bins)-1)+1
+for i, b_idx in enumerate(bin_idx_unique):
+    idx=np.where(bin_idx==b_idx)[0]
+    DE_bin=DE_col[idx]
+    DE_percent_bin=np.sum(DE_bin)/len(DE_bin)
+    DE_per_bin[i]=DE_percent_bin
+    
+ax1=ax.twinx()
+ax1.plot(bins_middle,DE_per_bin,'-X',color='r')
+ax1.set_ylabel('Detection Efficiency')
+
 
 # num_LIS_detection=num_LIS_detection_day+num_LIS_detection_night
 
@@ -381,6 +456,6 @@ for i, m in M.items():
 
 
 
-ii=29
-m=M[ii]
-plot_LMA_LIS_MATCH(m,ii,LMA_center)
+# ii=29
+# m=M[ii]
+# plot_LMA_LIS_MATCH(m,ii,LMA_center)
