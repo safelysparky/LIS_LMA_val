@@ -1224,7 +1224,7 @@ fig_folder='C:/Users/yanan/Desktop/LIS_fig/'
 EN_data_available=True
 
 M={} # initialize the dictionary for LMA-LIS match
-in_FOV_lma_flash_no=0 # the initial value that will be used for LMA-LIS match dict key
+in_FOV_lma_flash_no=-1 # the initial value that will be used for LMA-LIS match dict key
 
 df=pd.read_csv(csv_fname,names=['LIS_fnames','num_of_flashes','t1','t2'])
 
