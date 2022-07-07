@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import pickle
-
+import numpy.ma as ma
 import pandas as pd
 
 from matplotlib import cm
@@ -9,6 +9,8 @@ from matplotlib.gridspec import GridSpec
 from scipy.spatial import ConvexHull
 from shapely.geometry import LinearRing
 from shapely.geometry.polygon import Polygon
+
+
 
 def load_obj(name):
     with open(name, 'rb') as f:
@@ -387,6 +389,8 @@ DE_col=F[:,0]
 FA_col=F[:,1]
 SA_col=F[:,3]
 NS_col=F[:,2]
+PX_col=F[:,7]
+PY_col=F[:,8]
 
 #####################################
 # flash_area histogram
@@ -476,18 +480,56 @@ ax1=ax.twinx()
 ax1.plot(bins_middle,DE_per_bin,'-X',color='r')
 ax1.set_ylabel('Detection Efficiency')
 
-# num_LIS_detection=num_LIS_detection_day+num_LIS_detection_night
-
-# DE=np.around(num_LIS_detection/num_flashes,2)
-# DE_day=np.around(num_LIS_detection_day/num_day_flashes,2)
-# DE_night=np.around(num_LIS_detection_night/num_night_flashes,2)
-
-
-# print(f"LIS detected {num_LIS_detection}/{len(M)} LMA flashes, DE is {DE}")
-# print(f"During day: LIS detected {num_LIS_detection_day}/{num_day_flashes} LMA flashes, DE is {DE_day}")
-# print(f"During night: LIS detected {num_LIS_detection_night}/{num_night_flashes} LMA flashes, DE is {DE_night}")
+###################################################
+#  px py count
+##################################################
+CCD_flash_counts=np.zeros((128,128))
+CCD_detection_counts=np.zeros((128,128))
 
 
+for event_px,event_py,detection_tf in zip(PX_col,PY_col,DE_col):
+     CCD_flash_counts[int(event_py),int(event_px)]+=1
+     if detection_tf==1:
+         CCD_detection_counts[int(event_py),int(event_px)]+=1
+
+CCD_flash_counts_m=ma.masked_equal(CCD_flash_counts,0) 
+
+CCD_DE=CCD_detection_counts/CCD_flash_counts_m
+
+fig,ax=plt.subplots(figsize=(15,15))
+ax.plot([127/2,127/2],[0,127],'--k',alpha=0.5)
+ax.plot([0,127],[127/2,127/2],'--k',alpha=0.5)
+p1=ax.imshow(CCD_DE,cmap='jet',origin='lower',vmin=0, vmax=1)
+# ax.imshow(a,cmap='jet',origin='lower')
+bar = plt.colorbar(p1)
+
+
+# bin the pixels
+original_CCD_size=128
+binned_factor=16
+new_CCD_size=int(original_CCD_size/binned_factor)
+bin_limits=np.arange(0,127+binned_factor,binned_factor)
+PX_col_new=np.digitize(PX_col, bins=bin_limits)-1 # MAKE IT START FROM 0
+PY_col_new=np.digitize(PY_col, bins=bin_limits)-1
+
+CCD_binned_flash_counts=np.zeros((new_CCD_size,new_CCD_size))
+CCD_binned_detection_counts=np.zeros((new_CCD_size,new_CCD_size))
+
+for event_px,event_py,detection_tf in zip(PX_col_new,PY_col_new,DE_col):
+     CCD_binned_flash_counts[int(event_py),int(event_px)]+=1
+     if detection_tf==1:
+         CCD_binned_detection_counts[int(event_py),int(event_px)]+=1
+
+CCD_binned_flash_counts_m=ma.masked_equal(CCD_binned_flash_counts,0) 
+
+CCD_binned_DE=CCD_binned_detection_counts/CCD_binned_flash_counts_m
+
+fig,ax=plt.subplots(figsize=(15,15))
+# ax.plot([127/2,127/2],[0,127],'--k',alpha=0.5)
+# ax.plot([0,127],[127/2,127/2],'--k',alpha=0.5)
+p1=ax.imshow(CCD_binned_DE,cmap='cool',origin='lower',vmin=0, vmax=1)
+# ax.imshow(a,cmap='jet',origin='lower')
+bar = plt.colorbar(p1)
 
 # ii=29
 # m=M[ii]
