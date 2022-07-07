@@ -402,7 +402,7 @@ ax.set_xlabel('Flash area ($km^2$)')
 ax.set_ylabel('Number')
 
 # DE vs flash area
-bin_idx=np.digitize(F[:,1],bins=bins)
+bin_idx=np.digitize(FA_col,bins=bins)
 DE_per_bin=np.zeros(len(bins)-1)
 
 bin_idx_unique=np.arange(len(bins)-1)+1
@@ -442,12 +442,39 @@ for i, b_idx in enumerate(bin_idx_unique):
     DE_bin=DE_col_kept[idx]
     DE_percent_bin=np.sum(DE_bin)/len(DE_bin)
     DE_per_bin[i]=DE_percent_bin
-    print(f"between {bins[i]} and {bins[i+1]}, number of events: {len(DE_bin)}, num_detections: {int(np.sum(DE_bin))}")
+    #print(f"between {bins[i]} and {bins[i+1]}, number of events: {len(DE_bin)}, num_detections: {int(np.sum(DE_bin))}")
     
 ax1=ax.twinx()
 ax1.plot(bins_middle,DE_per_bin,'-X',color='r')
 ax1.set_ylabel('Detection Efficiency')
 
+#########################################
+# Number of sources vs DE
+#########################################
+fig,ax=plt.subplots(figsize=(10,8))
+bins=2**(np.arange(4,14)) # TODO: NEED TO CALCULATE THE ORDER
+
+bins_middle=np.diff(bins)/2+bins[0:-1]
+
+ax.hist(NS_col,bins=bins)
+ax.set_xscale('log')
+ax.set_xlabel('Numer of sources in a Flash')
+ax.set_ylabel('Number')
+
+# DE vs flash area
+bin_idx=np.digitize(NS_col,bins=bins)
+DE_per_bin=np.zeros(len(bins)-1)
+
+bin_idx_unique=np.arange(len(bins)-1)+1
+for i, b_idx in enumerate(bin_idx_unique):
+    idx=np.where(bin_idx==b_idx)[0]
+    DE_bin=DE_col[idx]
+    DE_percent_bin=np.sum(DE_bin)/len(DE_bin)
+    DE_per_bin[i]=DE_percent_bin
+    
+ax1=ax.twinx()
+ax1.plot(bins_middle,DE_per_bin,'-X',color='r')
+ax1.set_ylabel('Detection Efficiency')
 
 # num_LIS_detection=num_LIS_detection_day+num_LIS_detection_night
 
