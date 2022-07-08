@@ -325,13 +325,20 @@ def read_lma_format_data_as_nparray_with_epoch_t(txt_filename,ref_lat,ref_lon,re
     # note here we only used the first six columns, because the sta msk in hex is not compatible
     L1=np.loadtxt(txt_filename,skiprows=header_line,usecols=(0,1,2,3,4,5))
     
+    # For an file with no sources, loadtxt will return an empty umpy array
+    # in this case, return S with empty list 
+    if len(L1)==0:
+        S=[]
+        return S 
+    
     # fix the one data line problem
     if len(L1.shape)==1:
         L1=L1.reshape(1,-1)
         
     lla=L1[:,1:4]
-    
+
     rchi2=L1[:,4].reshape(-1,1)
+
     power=L1[:,5].reshape(-1,1)
     t=L1[:,0].reshape(-1,1)
 
