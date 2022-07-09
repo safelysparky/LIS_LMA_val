@@ -292,12 +292,14 @@ def plot_LMA_LIS_MATCH(m,ii,LMA_center,fig_save=False,fig_folder=None):
         full_t_stamp=full_t_stamp.replace('.','_')
         fig_name=fig_folder+str(ii)+'_'+full_t_stamp+'.png'
         fig.savefig(fig_name,dpi=300,bbox_inches='tight')
+        plt.close(fig)
 
 
-
-M=load_obj('E:/NALMA_LIS/NALMA_LIS_matches.pkl')
-LMA_center=np.array([34.8,-86.85])
-
+LMA_name='OKLMA'
+M=load_obj('E:/OKLMA_LIS/OKLMA_LIS_matches.pkl')
+fig_folder='C:/Users/yanan/Desktop/LIS_fig/'
+#LMA_center=np.array([34.8,-86.85])
+LMA_center=np.array([35.3,-98.5])
 
 # 0:DE 
 # 1:Flash area
@@ -364,7 +366,9 @@ for i, m in M.items():
 num_LMA_flashes=len(F)
 num_LIS_detections=int(np.sum(F[:,0]))
 DE=np.around(num_LIS_detections/num_LMA_flashes,2)
-print(f"LIS detected {num_LIS_detections}/{num_LMA_flashes} LMA flashes, DE is {DE}")
+print("Overall DE:")
+print(f"LIS detected {num_LIS_detections}/{num_LMA_flashes} LMA flashes, DE is {DE}\n")
+
 
 # Calculte day/night DE
 F_day=F[F[:,6]==1,:]
@@ -378,8 +382,38 @@ num_LIS_detections_night=int(np.sum(F_night[:,0]))
 DE_day=np.around(num_LIS_detections_day/num_LMA_flashes_day,2)
 DE_night=np.around(num_LIS_detections_night/num_LMA_flashes_night,2)
 
+print("DE during day and night:")
 print(f"During day: LIS detected {num_LIS_detections_day}/{num_LMA_flashes_day} LMA flashes, DE is {DE_day}")
-print(f"During night: LIS detected {num_LIS_detections_night}/{num_LMA_flashes_night} LMA flashes, DE is {DE_night}")
+print(f"During night: LIS detected {num_LIS_detections_night}/{num_LMA_flashes_night} LMA flashes, DE is {DE_night}\n")
+
+
+# DE for different types of flashes
+F_IC=F[F[:,4]==0,:]
+F_NCG=F[F[:,4]==1,:]
+F_PCG=F[F[:,4]==2,:]
+F_BCG=F[F[:,4]==3,:]
+
+num_LMA_flashes_IC=len(F_IC)
+num_LMA_flashes_NCG=len(F_NCG)
+num_LMA_flashes_PCG=len(F_PCG)
+num_LMA_flashes_BCG=len(F_BCG)
+
+num_LIS_detections_IC=int(np.sum(F_IC[:,0]))
+num_LIS_detections_NCG=int(np.sum(F_NCG[:,0]))
+num_LIS_detections_PCG=int(np.sum(F_PCG[:,0]))
+num_LIS_detections_BCG=int(np.sum(F_BCG[:,0]))
+
+DE_IC=np.around(num_LIS_detections_IC/num_LMA_flashes_IC,2)
+DE_NCG=np.around(num_LIS_detections_NCG/num_LMA_flashes_NCG,2)
+DE_PCG=np.around(num_LIS_detections_PCG/num_LMA_flashes_PCG,2)
+DE_BCG=np.around(num_LIS_detections_BCG/num_LMA_flashes_BCG,2)
+
+print("DE for different type of flashes:")
+print(f"IC flash: LIS detected {num_LIS_detections_IC}/{num_LMA_flashes_IC} flashes, DE is {DE_IC}")
+print(f"-CG flash: LIS detected {num_LIS_detections_NCG}/{num_LMA_flashes_NCG} flashes, DE is {DE_NCG}")
+print(f"+CG flash: LIS detected {num_LIS_detections_PCG}/{num_LMA_flashes_PCG} flashes, DE is {DE_PCG}")
+print(f"Bipolar flash: LIS detected {num_LIS_detections_BCG}/{num_LMA_flashes_BCG} flashes, DE is {DE_BCG}")
+
 
 #########################################
 #plot DE with different variables
@@ -419,6 +453,7 @@ for i, b_idx in enumerate(bin_idx_unique):
 ax1=ax.twinx()
 ax1.plot(bins_middle,DE_per_bin,'-X',color='r')
 ax1.set_ylabel('Detection Efficiency')
+ax1.annotate(LMA_name+'-LIS: DE vs Flash Area', xy=(0.02, 1.01), xycoords='axes fraction', fontsize = 18)
 
 ########################################
 # Meidan source altitude histogram
@@ -451,6 +486,7 @@ for i, b_idx in enumerate(bin_idx_unique):
 ax1=ax.twinx()
 ax1.plot(bins_middle,DE_per_bin,'-X',color='r')
 ax1.set_ylabel('Detection Efficiency')
+ax1.annotate(LMA_name+'-LIS: DE vs Median Flash Altitude', xy=(0.02, 1.01), xycoords='axes fraction', fontsize = 18)
 
 #########################################
 # Number of sources vs DE
@@ -465,7 +501,7 @@ ax.set_xscale('log')
 ax.set_xlabel('Numer of sources in a Flash')
 ax.set_ylabel('Number')
 
-# DE vs flash area
+
 bin_idx=np.digitize(NS_col,bins=bins)
 DE_per_bin=np.zeros(len(bins)-1)
 
@@ -479,6 +515,7 @@ for i, b_idx in enumerate(bin_idx_unique):
 ax1=ax.twinx()
 ax1.plot(bins_middle,DE_per_bin,'-X',color='r')
 ax1.set_ylabel('Detection Efficiency')
+ax1.annotate(LMA_name+'-LIS: DE vs Number of Sources', xy=(0.02, 1.01), xycoords='axes fraction', fontsize = 18)
 
 ###################################################
 #  px py count
@@ -496,13 +533,13 @@ CCD_flash_counts_m=ma.masked_equal(CCD_flash_counts,0)
 
 CCD_DE=CCD_detection_counts/CCD_flash_counts_m
 
-fig,ax=plt.subplots(figsize=(15,15))
+fig,ax=plt.subplots(figsize=(10,8))
 ax.plot([127/2,127/2],[0,127],'--k',alpha=0.5)
 ax.plot([0,127],[127/2,127/2],'--k',alpha=0.5)
 p1=ax.imshow(CCD_DE,cmap='jet',origin='lower',vmin=0, vmax=1)
 # ax.imshow(a,cmap='jet',origin='lower')
 bar = plt.colorbar(p1)
-
+ax.annotate(LMA_name+'-LIS: DE for individual CCD pixels', xy=(0.02, 1.01), xycoords='axes fraction', fontsize = 18)
 
 # bin the pixels
 original_CCD_size=128
@@ -524,13 +561,24 @@ CCD_binned_flash_counts_m=ma.masked_equal(CCD_binned_flash_counts,0)
 
 CCD_binned_DE=CCD_binned_detection_counts/CCD_binned_flash_counts_m
 
-fig,ax=plt.subplots(figsize=(15,15))
+fig,ax=plt.subplots(figsize=(10,8))
 # ax.plot([127/2,127/2],[0,127],'--k',alpha=0.5)
 # ax.plot([0,127],[127/2,127/2],'--k',alpha=0.5)
-p1=ax.imshow(CCD_binned_DE,cmap='cool',origin='lower',vmin=0, vmax=1)
+p1=ax.imshow(CCD_binned_DE,cmap='BuPu',origin='lower',vmin=0, vmax=1)
 # ax.imshow(a,cmap='jet',origin='lower')
-bar = plt.colorbar(p1)
+cbar = plt.colorbar(p1)
+cbar.set_label('Detection Efficiency')
+ax.set_xticks(np.arange(-0.5, 8, 1))  # Set label locations.
+ax.set_xticklabels(np.arange(0,127+16,16))
+ax.set_yticks(np.arange(-0.5, 8, 1))  # Set label locations.
+ax.set_yticklabels(np.arange(0,127+16,16))
+ax.set_xlabel('px')
+ax.set_ylabel('py')
+ax.annotate(LMA_name+'-LIS: DE for binned larger pixels', xy=(0.02, 1.01), xycoords='axes fraction', fontsize = 18)
 
-# ii=29
-# m=M[ii]
-# plot_LMA_LIS_MATCH(m,ii,LMA_center)
+
+a=np.argsort(FA_col)[::-1]
+for ii in a[:100]:
+    m=M[ii]
+    print(ii,m['centroid pxpy'],m['flash area'],m['LIS detection'])
+    #plot_LMA_LIS_MATCH(m,ii,LMA_center,fig_save=True,fig_folder=fig_folder)
