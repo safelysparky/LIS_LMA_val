@@ -581,4 +581,4 @@ a=np.argsort(FA_col)[::-1]
 for ii in a[:100]:
     m=M[ii]
     print(ii,m['centroid pxpy'],m['flash area'],m['LIS detection'])
-    #plot_LMA_LIS_MATCH(m,ii,LMA_center,fig_save=True,fig_folder=fig_folder)
+    plot_LMA_LIS_MATCH(m,ii,LMA_center,fig_save=True,fig_folder=fig_folder)
