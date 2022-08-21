@@ -295,11 +295,11 @@ def plot_LMA_LIS_MATCH(m,ii,LMA_center,fig_save=False,fig_folder=None):
         plt.close(fig)
 
 
-LMA_name='OKLMA'
-M=load_obj('E:/OKLMA_LIS/OKLMA_LIS_matches.pkl')
+LMA_name='NALMA'
+M=load_obj('E:/NALMA_LIS/NALMA_LIS_matches.pkl')
 fig_folder='C:/Users/yanan/Desktop/LIS_fig/'
-#LMA_center=np.array([34.8,-86.85])
-LMA_center=np.array([35.3,-98.5])
+LMA_center=np.array([34.8,-86.85])
+#LMA_center=np.array([35.3,-98.5])
 
 # 0:DE 
 # 1:Flash area
@@ -562,8 +562,6 @@ CCD_binned_flash_counts_m=ma.masked_equal(CCD_binned_flash_counts,0)
 CCD_binned_DE=CCD_binned_detection_counts/CCD_binned_flash_counts_m
 
 fig,ax=plt.subplots(figsize=(10,8))
-# ax.plot([127/2,127/2],[0,127],'--k',alpha=0.5)
-# ax.plot([0,127],[127/2,127/2],'--k',alpha=0.5)
 p1=ax.imshow(CCD_binned_DE,cmap='BuPu',origin='lower',vmin=0, vmax=1)
 # ax.imshow(a,cmap='jet',origin='lower')
 cbar = plt.colorbar(p1)
@@ -580,5 +578,5 @@ ax.annotate(LMA_name+'-LIS: DE for binned larger pixels', xy=(0.02, 1.01), xycoo
 a=np.argsort(FA_col)[::-1]
 for ii in a[:100]:
     m=M[ii]
-    print(ii,m['centroid pxpy'],m['flash area'],m['LIS detection'])
+    print(ii,m['centroid pxpy'],m['flash area'],m['LIS detection'],m['LMA_t1'])
     plot_LMA_LIS_MATCH(m,ii,LMA_center,fig_save=True,fig_folder=fig_folder)
